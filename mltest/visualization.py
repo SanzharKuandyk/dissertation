@@ -158,7 +158,22 @@ def create_benchmark_breakdown(data: Dict, output_path: Path):
     ax.set_xticks(x)
     ax.set_xticklabels(names, rotation=45, ha='right', fontsize=10)
     ax.legend(loc='upper right')
-    ax.set_ylim(0, 100)
+    ax.set_ylim(0, 110)
+
+    # Add value labels on bars
+    for bar in bars1:
+        height = bar.get_height()
+        ax.annotate(f'{height:.1f}%',
+                   xy=(bar.get_x() + bar.get_width() / 2, height),
+                   xytext=(0, 3), textcoords="offset points",
+                   ha='center', va='bottom', fontsize=9, fontweight='bold')
+
+    for bar in bars2:
+        height = bar.get_height()
+        ax.annotate(f'{height:.1f}%',
+                   xy=(bar.get_x() + bar.get_width() / 2, height),
+                   xytext=(0, 3), textcoords="offset points",
+                   ha='center', va='bottom', fontsize=9, fontweight='bold')
 
     plt.tight_layout()
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
@@ -332,7 +347,22 @@ def create_language_comparison(data: Dict, output_path: Path):
     ax.set_xticks(x)
     ax.set_xticklabels(['C', 'Rust'], fontsize=12)
     ax.legend()
-    ax.set_ylim(0, 100)
+    ax.set_ylim(0, 110)
+
+    # Add value labels on bars
+    for bar in bars1:
+        height = bar.get_height()
+        ax.annotate(f'{height:.1f}%',
+                   xy=(bar.get_x() + bar.get_width() / 2, height),
+                   xytext=(0, 3), textcoords="offset points",
+                   ha='center', va='bottom', fontsize=11, fontweight='bold')
+
+    for bar in bars2:
+        height = bar.get_height()
+        ax.annotate(f'{height:.1f}%',
+                   xy=(bar.get_x() + bar.get_width() / 2, height),
+                   xytext=(0, 3), textcoords="offset points",
+                   ha='center', va='bottom', fontsize=11, fontweight='bold')
 
     plt.tight_layout()
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
