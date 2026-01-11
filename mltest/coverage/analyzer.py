@@ -53,7 +53,9 @@ class CoverageAnalyzer:
         # Find or create benchmark
         benchmark = None
         for b in self.benchmarks:
-            if b.benchmark_name == benchmark_name and b.generator_type == function_coverage.generator_type:
+            if (b.benchmark_name == benchmark_name and
+                b.generator_type == function_coverage.generator_type and
+                b.language == language):
                 benchmark = b
                 break
 
