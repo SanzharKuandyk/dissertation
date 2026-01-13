@@ -52,21 +52,9 @@
 
 ## Slide 5: Tool Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                         MLTest Tool                          │
-├─────────────────────────────────────────────────────────────┤
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
-│  │   Parsers    │    │  Generators  │    │   Runners    │  │
-│  │  C / Rust    │───▶│  LLM / Templ │───▶│ Compile/Exec │  │
-│  └──────────────┘    └──────────────┘    └──────────────┘  │
-│         │                   │                   │           │
-│         ▼                   ▼                   ▼           │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │              Coverage Analyzer & Metrics              │  │
-│  └──────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-```
+![Tool Architecture](graphs/architecture_diagram.png)
+
+*Modular pipeline: Parse source code, generate tests via LLM/Template, execute with coverage measurement*
 
 ---
 

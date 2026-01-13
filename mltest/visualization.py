@@ -369,6 +369,123 @@ def create_language_comparison(data: Dict, output_path: Path):
     plt.close()
 
 
+def create_architecture_diagram(output_path: Path):
+    """Create a professional architecture diagram for the MLTest tool"""
+    fig, ax = plt.subplots(figsize=(14, 8))
+    ax.set_xlim(0, 14)
+    ax.set_ylim(0, 8)
+    ax.axis('off')
+
+    # Colors
+    header_color = '#2c3e50'
+    parser_color = '#3498db'
+    generator_color = '#2ecc71'
+    runner_color = '#e74c3c'
+    analyzer_color = '#9b59b6'
+    arrow_color = '#34495e'
+
+    # Main container
+    main_box = mpatches.FancyBboxPatch((0.5, 0.5), 13, 7,
+                                        boxstyle="round,pad=0.05,rounding_size=0.2",
+                                        facecolor='#ecf0f1', edgecolor=header_color,
+                                        linewidth=3)
+    ax.add_patch(main_box)
+
+    # Title bar
+    title_bar = mpatches.FancyBboxPatch((0.5, 6.5), 13, 1,
+                                         boxstyle="round,pad=0.02,rounding_size=0.2",
+                                         facecolor=header_color, edgecolor=header_color)
+    ax.add_patch(title_bar)
+    ax.text(7, 7, 'MLTest Tool', fontsize=20, fontweight='bold',
+            color='white', ha='center', va='center')
+
+    # Component boxes
+    box_height = 1.8
+    box_width = 3.2
+    y_top = 4.2
+    y_bottom = 1.2
+
+    # Parsers box
+    parser_box = mpatches.FancyBboxPatch((1, y_top), box_width, box_height,
+                                          boxstyle="round,pad=0.05,rounding_size=0.15",
+                                          facecolor=parser_color, edgecolor='#2980b9',
+                                          linewidth=2, alpha=0.9)
+    ax.add_patch(parser_box)
+    ax.text(1 + box_width/2, y_top + box_height - 0.4, 'Parsers',
+            fontsize=14, fontweight='bold', color='white', ha='center')
+    ax.text(1 + box_width/2, y_top + 0.5, 'C / Rust',
+            fontsize=12, color='white', ha='center')
+
+    # Generators box
+    gen_box = mpatches.FancyBboxPatch((5.4, y_top), box_width, box_height,
+                                       boxstyle="round,pad=0.05,rounding_size=0.15",
+                                       facecolor=generator_color, edgecolor='#27ae60',
+                                       linewidth=2, alpha=0.9)
+    ax.add_patch(gen_box)
+    ax.text(5.4 + box_width/2, y_top + box_height - 0.4, 'Generators',
+            fontsize=14, fontweight='bold', color='white', ha='center')
+    ax.text(5.4 + box_width/2, y_top + 0.5, 'LLM / Template',
+            fontsize=12, color='white', ha='center')
+
+    # Runners box
+    runner_box = mpatches.FancyBboxPatch((9.8, y_top), box_width, box_height,
+                                          boxstyle="round,pad=0.05,rounding_size=0.15",
+                                          facecolor=runner_color, edgecolor='#c0392b',
+                                          linewidth=2, alpha=0.9)
+    ax.add_patch(runner_box)
+    ax.text(9.8 + box_width/2, y_top + box_height - 0.4, 'Runners',
+            fontsize=14, fontweight='bold', color='white', ha='center')
+    ax.text(9.8 + box_width/2, y_top + 0.5, 'Compile / Execute',
+            fontsize=12, color='white', ha='center')
+
+    # Coverage Analyzer box (bottom, spans width)
+    analyzer_box = mpatches.FancyBboxPatch((1, y_bottom), 12, 1.5,
+                                            boxstyle="round,pad=0.05,rounding_size=0.15",
+                                            facecolor=analyzer_color, edgecolor='#8e44ad',
+                                            linewidth=2, alpha=0.9)
+    ax.add_patch(analyzer_box)
+    ax.text(7, y_bottom + 0.75, 'Coverage Analyzer & Metrics',
+            fontsize=14, fontweight='bold', color='white', ha='center')
+
+    # Horizontal arrows between top boxes
+    arrow_style = dict(arrowstyle='->', color=arrow_color, lw=3,
+                       mutation_scale=20)
+
+    # Parser -> Generator
+    ax.annotate('', xy=(5.3, y_top + box_height/2),
+                xytext=(4.3, y_top + box_height/2),
+                arrowprops=arrow_style)
+
+    # Generator -> Runner
+    ax.annotate('', xy=(9.7, y_top + box_height/2),
+                xytext=(8.7, y_top + box_height/2),
+                arrowprops=arrow_style)
+
+    # Vertical arrows to analyzer
+    down_arrow_style = dict(arrowstyle='->', color=arrow_color, lw=2.5,
+                            mutation_scale=15)
+
+    # Parser -> Analyzer
+    ax.annotate('', xy=(2.6, y_bottom + 1.6),
+                xytext=(2.6, y_top - 0.1),
+                arrowprops=down_arrow_style)
+
+    # Generator -> Analyzer
+    ax.annotate('', xy=(7, y_bottom + 1.6),
+                xytext=(7, y_top - 0.1),
+                arrowprops=down_arrow_style)
+
+    # Runner -> Analyzer
+    ax.annotate('', xy=(11.4, y_bottom + 1.6),
+                xytext=(11.4, y_top - 0.1),
+                arrowprops=down_arrow_style)
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches='tight',
+                facecolor='white', edgecolor='none')
+    plt.close()
+
+
 def create_summary_dashboard(data: Dict, output_path: Path):
     """Create a comprehensive summary dashboard"""
     summary = data.get('summary', {})
