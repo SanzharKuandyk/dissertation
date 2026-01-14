@@ -84,6 +84,16 @@ class CParser:
             if name in ['main']:
                 continue
 
+            # Skip C keywords that aren't valid function names
+            if name in ['if', 'while', 'for', 'switch', 'return', 'else', 'do']:
+                continue
+
+            # Skip invalid return types (comments parsed as types)
+            invalid_return_types = ['overflow', 'underflow', 'multiplication', 'division',
+                                   'addition', 'subtraction', 'check', 'error', 'success']
+            if return_type.lower() in invalid_return_types:
+                continue
+
             # Parse parameters
             parameters = self._parse_parameters(params_str)
 

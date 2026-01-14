@@ -22,8 +22,16 @@
   - Poor edge case handling
   - Language-specific constraints
 
-### Research Question
-*Can ML/LLM technology generate higher-quality unit tests for system-level languages compared to traditional approaches?*
+### Research Aim
+To develop and evaluate an ML-driven approach for automated unit test generation that improves code coverage and test quality for system-level programming languages (C, Rust).
+
+### Research Tasks
+1. Analyze existing automated test generation approaches and their limitations
+2. Design an architecture for ML/LLM-based test generation for system-level languages
+3. Implement a working prototype tool supporting C and Rust
+4. Develop a benchmark suite for comparative evaluation
+5. Evaluate the ML-based approach against traditional template-based methods
+6. Analyze results and formulate recommendations for practical application
 
 ---
 
@@ -44,9 +52,12 @@
 3. **Test Execution**: Compile and run generated tests with coverage measurement
 4. **Comparative Evaluation**: LLM-generated vs template-based tests
 
-### Target Languages
-- **C**: Most widely used system-level language
-- **Rust**: Modern memory-safe alternative
+### Technologies
+- **Programming Language**: Python 3.13+
+- **LLM APIs**: OpenAI GPT-4o, Anthropic Claude
+- **C Toolchain**: GCC compiler, gcov for coverage
+- **Rust Toolchain**: Cargo, cargo-tarpaulin for coverage
+- **Target Languages**: C, Rust
 
 ---
 
@@ -66,11 +77,6 @@
 - **Template Generator**: Baseline comparison (traditional approach)
 - **Test Runners**: Compile and execute tests for C (GCC) and Rust (Cargo)
 - **Coverage Analyzer**: Measure line/branch coverage using gcov/tarpaulin
-
-### Technologies
-- Python 3.13+
-- OpenAI GPT-4o / Anthropic Claude APIs
-- GCC with gcov, Rust with cargo-tarpaulin
 
 ---
 

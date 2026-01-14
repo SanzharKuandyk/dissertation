@@ -74,15 +74,14 @@ class CTestRunner:
 
             # Write test file
             test_file = tmpdir / "test.c"
-            # Include the source file in test
-            full_test = f'#include "{source_filename}"\n\n{test_code}'
-            test_file.write_text(full_test)
+            test_file.write_text(test_code)
 
-            # Compile
+            # Compile - link both source and test files
             output_binary = tmpdir / "test_exe"
             compile_cmd = [
                 self.compiler,
                 "-o", str(output_binary),
+                str(source_file),
                 str(test_file),
                 "-I", str(tmpdir),
                 "-lm"  # math library
@@ -160,14 +159,14 @@ class CTestRunner:
 
             # Write test file
             test_file = tmpdir / "test.c"
-            full_test = f'#include "{source_filename}"\n\n{test_code}'
-            test_file.write_text(full_test)
+            test_file.write_text(test_code)
 
-            # Compile with coverage flags
+            # Compile with coverage flags - compile both files together
             output_binary = tmpdir / "test_exe"
             compile_cmd = [
                 self.compiler,
                 "-o", str(output_binary),
+                str(source_file),
                 str(test_file),
                 "-I", str(tmpdir),
                 "-fprofile-arcs",

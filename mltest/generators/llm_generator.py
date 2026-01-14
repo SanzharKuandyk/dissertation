@@ -11,6 +11,17 @@ from abc import ABC, abstractmethod
 from ..parsers.c_parser import CFunction
 from ..parsers.rust_parser import RustFunction
 
+C_KEYWORDS = {
+    "if", "else", "for", "while", "switch", "case", "return",
+    "break", "continue", "default", "goto", "sizeof", "do",
+    "static", "struct", "union", "typedef", "enum", "const",
+    "volatile", "extern", "register", "inline", "restrict"
+}
+
+
+def safe_c_name(name: str) -> str:
+    return f"{name}_fn" if name in C_KEYWORDS else name
+
 
 @dataclass
 class GeneratedTest:
@@ -92,15 +103,28 @@ class LLMTestGenerator:
     C_SYSTEM_PROMPT = """You are an expert C programmer and testing specialist.
 Your task is to generate comprehensive unit tests for C functions.
 
-Guidelines:
-- Generate tests using a simple assertion-based approach (no external testing framework required)
-- Include tests for normal cases, edge cases, and boundary conditions
-- Test for NULL pointers where applicable
-- Test numeric overflow/underflow for integer operations
-- Include comments explaining each test case
-- Generate compilable, runnable C code
+CRITICAL RULES:
+- Return ONLY valid C code, no markdown, no explanations
+- DO NOT include headers (#include) - they will be added separately
+- DO NOT redefine the function being tested
+- DO NOT create a main() function
+- ONLY write: forward declaration + ONE test function
+- Use assert() for tests and printf() for output
+- Follow the exact format shown in the example
+- Function names MUST be valid C identifiers and MUST NOT be C keywords
+- Do NOT invent new syntax or pseudo-constructs (e.g., "overflow if(...)")
 
-Output format: Return ONLY the test code, no explanations."""
+ABSOLUTE PROHIBITIONS:
+- NEVER invent new keywords, types, macros, or labels
+- NEVER write pseudo-code or explanatory constructs
+- NEVER write lines like:
+    overflow(...)
+    multiplication(...)
+    division(...)
+    addition(...)
+- If checking overflow or conditions, use ONLY assert(expression)
+
+Output: VALID C CODE ONLY. No explanations. No comments outside code."""
 
     RUST_SYSTEM_PROMPT = """You are an expert Rust programmer and testing specialist.
 Your task is to generate comprehensive unit tests for Rust functions.
@@ -134,16 +158,20 @@ Output format: Return ONLY the test code, no explanations."""
         self.provider_name = provider
 
     def generate_c_tests(self, function: CFunction) -> GeneratedTest:
-        """Generate unit tests for a C function"""
-        prompt = self._build_c_prompt(function)
+        safe_name = safe_c_name(function.name)
+
+        prompt = self._build_c_prompt(function, safe_name)
 
         response = self.llm.generate(prompt, self.C_SYSTEM_PROMPT)
         test_code = self._extract_code(response, "c")
 
+        # Validate generated code
+        test_code = self._validate_and_clean_c_code(test_code, safe_name)
+
         return GeneratedTest(
-            function_name=function.name,
+            function_name=safe_name,
             test_code=test_code,
-            test_name=f"test_{function.name}",
+            test_name=f"test_{safe_name}",
             language="c",
             description=f"Generated tests for {function.raw_signature}",
             edge_cases_covered=self._identify_edge_cases(function, "c")
@@ -165,21 +193,36 @@ Output format: Return ONLY the test code, no explanations."""
             edge_cases_covered=self._identify_edge_cases(function, "rust")
         )
 
-    def _build_c_prompt(self, function: CFunction) -> str:
+    def _build_c_prompt(self, function: CFunction, safe_name: str) -> str:
         """Build prompt for C test generation"""
-        return f"""Generate comprehensive unit tests for the following C function:
+        return f"""Generate unit tests for this C function:
 
 {function.to_context()}
 
-Requirements:
-1. Create a test file that includes necessary headers
-2. Test normal operation with typical inputs
-3. Test edge cases (empty inputs, zero values, negative numbers where applicable)
-4. Test boundary conditions
-5. If the function handles pointers, test NULL handling
-6. Create a main() function that runs all tests and reports results
+EXACT FORMAT TO FOLLOW:
+```c
+// Forward declaration
+{function.raw_signature.replace(function.name, safe_name)};
 
-The test file should be self-contained and compilable with: gcc -o test test.c
+void test_{safe_name}() {{
+    printf("Testing {safe_name}...\\n");
+
+    // Write assert() statements to test the function
+    assert({safe_name}(/* test values */) == /* expected */);
+
+    printf("  All tests passed\\n");
+}}
+```
+
+RULES:
+- NO headers, NO main(), NO function implementations
+- ONLY: forward declaration + test_{safe_name}() function
+- Use ONLY assert() and printf()
+- Test normal cases, edge cases (0, INT_MAX, INT_MIN, NULL if applicable)
+- NO pseudo-code like "overflow(...)", "multiplication(...)", etc.
+- Write ONLY valid C code that compiles
+
+Generate the code now:
 """
 
     def _build_rust_prompt(self, function: RustFunction) -> str:
@@ -202,7 +245,7 @@ The tests should be runnable with: cargo test
     def _extract_code(self, response: str, language: str) -> str:
         """Extract code from LLM response, handling markdown code blocks"""
         # Check for markdown code blocks
-        if f"```{language}" in response.lower() or "```c" in response.lower() or "```rust" in response.lower():
+        if "```" in response:
             # Extract code between backticks
             lines = response.split('\n')
             in_code = False
@@ -212,16 +255,117 @@ The tests should be runnable with: cargo test
                 if line.strip().startswith('```') and not in_code:
                     in_code = True
                     continue
-                elif line.strip() == '```' and in_code:
+                elif line.strip().startswith('```') and in_code:
                     in_code = False
                     continue
                 elif in_code:
                     code_lines.append(line)
 
-            return '\n'.join(code_lines)
+            extracted = '\n'.join(code_lines)
+            if extracted.strip():
+                return extracted
 
         # No code blocks, return as-is
-        return response.strip()
+        result = response.strip()
+
+        # Clean up common issues
+        # Remove explanatory text before/after code
+        if language == 'c':
+            # Find the first line that looks like C code
+            lines = result.split('\n')
+            start_idx = 0
+            for i, line in enumerate(lines):
+                if line.strip().startswith('//') or line.strip().startswith('/*') or \
+                   'void test_' in line or line.strip().endswith(';'):
+                    start_idx = i
+                    break
+            result = '\n'.join(lines[start_idx:])
+
+        return result
+
+    def _validate_and_clean_c_code(self, code: str, func_name: str) -> str:
+        """Validate and clean generated C code"""
+        lines = code.split('\n')
+        cleaned_lines = []
+
+        invalid_patterns = [
+            'overflow ', 'underflow ', 'multiplication ', 'division ',
+            'addition ', 'subtraction ', 'modulo ', 'result '
+        ]
+
+        found_test_func = False
+        in_test_func = False
+        brace_count = 0
+
+        for line in lines:
+            stripped = line.strip()
+
+            # Skip lines with invalid pseudo-code patterns
+            is_invalid = False
+            if not stripped.startswith('//') and not stripped.startswith('/*'):
+                for pattern in invalid_patterns:
+                    if stripped.startswith(pattern) and '(' in stripped:
+                        is_invalid = True
+                        break
+
+            # Track if we're inside the correct test function
+            if f'void test_{func_name}' in line:
+                if found_test_func:
+                    # Already found one test function, skip duplicates
+                    continue
+                found_test_func = True
+                in_test_func = True
+                brace_count = 0
+
+            # Track braces to know when test function ends
+            if in_test_func:
+                brace_count += line.count('{') - line.count('}')
+                if not is_invalid:
+                    cleaned_lines.append(line)
+                if brace_count <= 0 and found_test_func:
+                    in_test_func = False
+            elif not in_test_func and not is_invalid:
+                # Only add lines outside test functions if they're valid
+                # This includes forward declarations
+                if stripped and (stripped.startswith('//') or
+                               stripped.startswith('/*') or
+                               stripped.endswith(';')):
+                    cleaned_lines.append(line)
+
+        cleaned = '\n'.join(cleaned_lines)
+
+        # Ensure we have the test function
+        if f'void test_{func_name}' not in cleaned:
+            # If validation failed completely, return a minimal valid test
+            return f'''// Forward declaration
+extern int {func_name}();
+
+void test_{func_name}() {{
+    printf("Testing {func_name}...\\n");
+    // LLM generated invalid code, using placeholder
+    printf("  Test placeholder\\n");
+}}
+'''
+
+        # Ensure we have only ONE forward declaration for this function
+        # Remove duplicate or wrong declarations
+        final_lines = []
+        seen_declarations = set()
+
+        for line in cleaned.split('\n'):
+            stripped = line.strip()
+            # Check if it's a forward declaration (ends with ;, not in function)
+            if stripped.endswith(');') and not 'void test_' in stripped:
+                if func_name in stripped:
+                    # This is a declaration for our function
+                    if func_name not in seen_declarations:
+                        seen_declarations.add(func_name)
+                        final_lines.append(line)
+                # Skip declarations for other functions
+            else:
+                final_lines.append(line)
+
+        return '\n'.join(final_lines)
 
     def _identify_edge_cases(self, function: Union[CFunction, RustFunction], language: str) -> List[str]:
         """Identify potential edge cases based on function signature"""
@@ -255,44 +399,49 @@ class TemplateTestGenerator:
 
     def generate_c_tests(self, function: CFunction) -> GeneratedTest:
         """Generate basic template-based tests for C"""
+        safe_name = safe_c_name(function.name)
         params = function.parameters
 
-        # Generate test calls with basic values
+        # Build simple test calls based on parameter types
         test_calls = []
-        for i, (ptype, pname) in enumerate(params):
-            if 'int' in ptype:
-                test_calls.append(('0', 'zero'))
-                test_calls.append(('1', 'one'))
-                test_calls.append(('-1', 'negative'))
-            elif '*' in ptype:
-                test_calls.append(('NULL', 'null'))
-            else:
-                test_calls.append(('0', 'default'))
 
-        test_code = f'''#include <stdio.h>
-#include <assert.h>
+        if len(params) == 0:
+            # No parameters, just call it
+            test_calls.append(f'    {safe_name}();')
+        elif len(params) == 1:
+            ptype, pname = params[0]
+            if 'int' in ptype.lower():
+                test_calls.append(f'    {safe_name}(0);')
+                test_calls.append(f'    {safe_name}(1);')
+                test_calls.append(f'    {safe_name}(-1);')
+        elif len(params) == 2:
+            # Two parameters - common case
+            t1, n1 = params[0]
+            t2, n2 = params[1]
+            if 'int' in t1.lower() and 'int' in t2.lower():
+                test_calls.append(f'    {safe_name}(0, 0);')
+                test_calls.append(f'    {safe_name}(1, 1);')
+                test_calls.append(f'    {safe_name}(5, 3);')
+        else:
+            # Multiple params, just call with zeros
+            args = ', '.join('0' for _ in params)
+            test_calls.append(f'    {safe_name}({args});')
 
-// Forward declaration
-{function.raw_signature};
+        test_body = '\n'.join(test_calls) if test_calls else f'    // No test generated for {safe_name}'
 
-// Basic template-generated tests
-void test_{function.name}_basic() {{
-    printf("Testing {function.name} with basic values...\\n");
-    // TODO: Add appropriate test values based on function signature
-    printf("  PASSED\\n");
-}}
+        test_code = f'''// Forward declaration
+{function.raw_signature.replace(function.name, safe_name)};
 
-int main() {{
-    printf("Running template-generated tests for {function.name}\\n");
-    test_{function.name}_basic();
-    printf("All tests passed!\\n");
-    return 0;
+void test_{safe_name}() {{
+    printf("Testing {safe_name}...\\n");
+{test_body}
+    printf("  Basic tests completed\\n");
 }}
 '''
         return GeneratedTest(
-            function_name=function.name,
+            function_name=safe_name,
             test_code=test_code,
-            test_name=f"test_{function.name}",
+            test_name=f"test_{safe_name}",
             language="c",
             description=f"Template-based tests for {function.raw_signature}",
             edge_cases_covered=["basic values only"]

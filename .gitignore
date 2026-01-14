@@ -32,6 +32,9 @@ env/
 *.swp
 *.swo
 
+# Environment variables (API keys)
+.env
+
 # OS
 .DS_Store
 Thumbs.db

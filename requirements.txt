@@ -16,6 +16,7 @@ pytest>=7.0.0
 # CLI & Utilities
 click>=8.0.0
 rich>=13.0.0
+python-dotenv>=1.0.0
 
 # Data & Visualization
 pandas>=2.0.0

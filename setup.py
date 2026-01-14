@@ -12,6 +12,7 @@ setup(
     install_requires=[
         "click>=8.0.0",
         "rich>=13.0.0",
+        "python-dotenv>=1.0.0",
         "pandas>=2.0.0",
         "matplotlib>=3.7.0",
         "seaborn>=0.12.0",
