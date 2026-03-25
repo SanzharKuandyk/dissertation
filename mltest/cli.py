@@ -363,5 +363,296 @@ def _display_results(result, coverage):
         console.print(result.output[:1000])
 
 
+@main.command("train-model")
+@click.option('--results-file', default='results/results.json',
+              type=click.Path(exists=True), show_default=True,
+              help='Path to results.json from a previous benchmark run')
+@click.option('--benchmarks-dir', default='benchmarks',
+              type=click.Path(exists=True), show_default=True,
+              help='Directory containing benchmark source files')
+@click.option('--model-output', default='models/strategy_selector.joblib',
+              type=click.Path(), show_default=True,
+              help='Output path for the trained model artifact')
+@click.option('--threshold', default=-1.0, type=float, show_default=True,
+              help='LLM coverage threshold for label=1 (-1 = auto/median split)')
+@click.option('--n-estimators', default=100, type=int, show_default=True,
+              help='Number of trees in the Random Forest')
+def train_model(results_file: str, benchmarks_dir: str, model_output: str,
+                threshold: float, n_estimators: int):
+    """Train the ML strategy selector from existing benchmark results.
+
+    Reads results.json (produced by the benchmark command), re-parses the
+    benchmark source files to extract code complexity features, then trains a
+    Random Forest classifier with 5-fold cross-validation to predict which
+    test generation strategy (LLM vs template) achieves higher coverage.
+
+    The trained model is saved to --model-output and can be used by the
+    evaluate-ml command.
+    """
+    from .ml.strategy_selector import MLStrategySelector
+    import warnings
+
+    console.print(Panel.fit(
+        "[bold blue]ML Strategy Selector — Training[/bold blue]\n"
+        "Training a Random Forest to predict optimal test generation strategy",
+        border_style="blue",
+    ))
+
+    selector = MLStrategySelector()
+
+    with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
+                  transient=True) as progress:
+        task = progress.add_task("Training model...", total=None)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            metrics = selector.train(
+                results_path=Path(results_file),
+                benchmarks_dir=Path(benchmarks_dir),
+                model_output_path=Path(model_output),
+                n_estimators=n_estimators,
+                coverage_threshold=threshold,
+            )
+        progress.update(task, description="Done.")
+
+    for w in caught:
+        console.print(f"[yellow]Warning:[/yellow] {w.message}")
+
+    # Cross-validation metrics table
+    cv = metrics.get("cv_metrics", {})
+    cv_table = Table(title="5-Fold Cross-Validation Metrics", show_header=True)
+    cv_table.add_column("Metric", style="cyan", min_width=28)
+    cv_table.add_column("Mean", style="green", justify="right")
+    cv_table.add_column("Std", justify="right")
+
+    metric_labels = {
+        "test_accuracy": "Accuracy",
+        "test_f1_weighted": "F1 (weighted)",
+        "test_precision_weighted": "Precision (weighted)",
+        "test_recall_weighted": "Recall (weighted)",
+    }
+    for key, label in metric_labels.items():
+        if key in cv:
+            cv_table.add_row(
+                label,
+                f"{cv[key]['mean']:.4f}",
+                f"± {cv[key]['std']:.4f}",
+            )
+    console.print(cv_table)
+
+    # Class distribution
+    dist = metrics.get("class_distribution", {})
+    console.print(
+        f"\n[bold]Training samples:[/bold] {metrics['training_samples']}  |  "
+        f"High-coverage / label=1: {dist.get(1, 0)}  |  "
+        f"Low-coverage / label=0: {dist.get(0, 0)}"
+    )
+
+    # Top-10 feature importances
+    imp_df = selector.get_feature_importances().head(10)
+    imp_table = Table(title="Top-10 Feature Importances", show_header=True)
+    imp_table.add_column("Rank", justify="right", style="dim")
+    imp_table.add_column("Feature", style="cyan")
+    imp_table.add_column("Importance", justify="right", style="green")
+    for rank, row in enumerate(imp_df.itertuples(), 1):
+        imp_table.add_row(str(rank), row.feature, f"{row.importance:.4f}")
+    console.print(imp_table)
+
+    console.print(f"\n[bold green]Model saved to:[/bold green] {model_output}")
+
+
+@main.command("evaluate-ml")
+@click.argument('benchmark_dir', type=click.Path(exists=True))
+@click.option('--model-path', default='models/strategy_selector.joblib',
+              type=click.Path(exists=True), show_default=True,
+              help='Path to trained model artifact')
+@click.option('--results-file', default='results/results.json',
+              type=click.Path(exists=True), show_default=True,
+              help='Path to results.json for baseline comparison')
+@click.option('--output-dir', '-o', default='results',
+              type=click.Path(), show_default=True,
+              help='Directory to save ml_comparison.json and charts')
+def evaluate_ml(benchmark_dir: str, model_path: str, results_file: str, output_dir: str):
+    """Run ML-guided evaluation and compare against baselines.
+
+    Uses the trained ML strategy selector to predict, per function, whether
+    to use LLM or template test generation. Compares the resulting coverage
+    and API usage against always-LLM and always-template baselines.
+
+    Outputs ml_comparison.json and four ML visualisation charts.
+    """
+    from .ml.strategy_selector import MLStrategySelector
+    from .visualization import create_ml_charts
+
+    console.print(Panel.fit(
+        "[bold green]ML-Guided Evaluation — 3-Way Comparison[/bold green]\n"
+        "Always-LLM  vs  Always-Template  vs  ML-Guided",
+        border_style="green",
+    ))
+
+    selector = MLStrategySelector()
+    console.print(f"Loading model from [cyan]{model_path}[/cyan]...")
+    selector.load_model(Path(model_path))
+
+    with open(results_file) as f:
+        import json as _json
+        data = _json.load(f)
+
+    from .parsers.c_parser import CParser
+    from .parsers.rust_parser import RustParser
+    from .parsers.cpp_parser import CppParser
+
+    results_dir = Path(output_dir)
+    graphs_dir = Path(benchmark_dir).parent / "graphs"
+    results_dir.mkdir(exist_ok=True)
+    graphs_dir.mkdir(exist_ok=True)
+
+    # Build result lookup
+    result_lookup = {}
+    for bench in data.get("benchmarks", []):
+        bname, lang, gtype = bench["benchmark_name"], bench["language"], bench["generator_type"]
+        for r in bench.get("function_results", []):
+            result_lookup[(bname, lang, gtype, r["function_name"])] = r
+
+    all_functions = set()
+    for (bname, lang, gtype, fname) in result_lookup:
+        all_functions.add((bname, lang, fname))
+
+    c_parser, rust_parser = CParser(), RustParser()
+    parse_cache: dict = {}
+
+    def _parse_file_cached(filepath, lang):
+        if filepath in parse_cache:
+            return parse_cache[filepath]
+        source = filepath.read_text(encoding="utf-8")
+        if lang == "c":
+            result = {f.name: f for f in c_parser.parse_source(source)}
+        elif lang == "rust":
+            result = {f.name: f for f in rust_parser.parse_source(source)}
+        elif lang == "cpp":
+            result = {f.name: f for f in CppParser().parse_source(source)}
+        else:
+            result = {}
+        parse_cache[filepath] = result
+        return result
+
+    ml_decisions, always_llm_covs, always_tmpl_covs, ml_guided_covs = [], [], [], []
+    always_llm_passed = always_tmpl_passed = ml_guided_passed = ml_llm_count = total_funcs = 0
+
+    with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
+                  transient=True) as progress:
+        task = progress.add_task(f"Evaluating {len(all_functions)} functions...", total=None)
+
+        for bname, lang, fname in sorted(all_functions):
+            llm_key = (bname, lang, "llm", fname)
+            tmpl_key = (bname, lang, "template", fname)
+            if llm_key not in result_lookup or tmpl_key not in result_lookup:
+                continue
+            llm_r, tmpl_r = result_lookup[llm_key], result_lookup[tmpl_key]
+            always_llm_covs.append(llm_r["line_coverage"])
+            always_tmpl_covs.append(tmpl_r["line_coverage"])
+            always_llm_passed += int(llm_r.get("test_passed", False))
+            always_tmpl_passed += int(tmpl_r.get("test_passed", False))
+            total_funcs += 1
+
+            ext = {"c": ".c", "rust": ".rs", "cpp": ".cpp"}.get(lang, ".c")
+            filepath = Path(benchmark_dir) / lang / f"{bname}{ext}"
+            func_map = _parse_file_cached(filepath, lang) if filepath.exists() else {}
+            func = func_map.get(fname)
+            strategy = selector.predict(func, lang) if func else "llm"
+            proba = selector.predict_proba(func, lang) if func else {"llm": 1.0, "template": 0.0}
+
+            chosen_r = llm_r if strategy == "llm" else tmpl_r
+            ml_guided_covs.append(chosen_r["line_coverage"])
+            ml_guided_passed += int(chosen_r.get("test_passed", False))
+            if strategy == "llm":
+                ml_llm_count += 1
+
+            ml_decisions.append({
+                "benchmark": bname, "language": lang, "function": fname,
+                "ml_strategy": strategy, "llm_confidence": round(proba["llm"], 3),
+                "llm_line_cov": round(llm_r["line_coverage"], 2),
+                "template_line_cov": round(tmpl_r["line_coverage"], 2),
+                "chosen_line_cov": round(chosen_r["line_coverage"], 2),
+            })
+
+        progress.update(task, description="Done.")
+
+    if total_funcs == 0:
+        console.print("[red]No matched functions found.[/red]")
+        return
+
+    ml_api_saved = total_funcs - ml_llm_count
+    ml_api_savings_pct = round(100.0 * ml_api_saved / total_funcs, 1)
+    always_llm_lc = round(sum(always_llm_covs) / len(always_llm_covs), 2)
+    always_tmpl_lc = round(sum(always_tmpl_covs) / len(always_tmpl_covs), 2)
+    ml_lc = round(sum(ml_guided_covs) / len(ml_guided_covs), 2)
+
+    comparison = {
+        "total_functions": total_funcs,
+        "always_llm": {
+            "avg_line_coverage": always_llm_lc,
+            "pass_rate": round(100.0 * always_llm_passed / total_funcs, 1),
+            "api_calls": total_funcs, "api_calls_saved": 0,
+        },
+        "always_template": {
+            "avg_line_coverage": always_tmpl_lc,
+            "pass_rate": round(100.0 * always_tmpl_passed / total_funcs, 1),
+            "api_calls": 0, "api_calls_saved": total_funcs,
+        },
+        "ml_guided": {
+            "avg_line_coverage": ml_lc,
+            "pass_rate": round(100.0 * ml_guided_passed / total_funcs, 1),
+            "api_calls": ml_llm_count, "api_calls_saved": ml_api_saved,
+            "api_savings_pct": ml_api_savings_pct,
+            "coverage_delta_vs_always_llm": round(ml_lc - always_llm_lc, 2),
+            "llm_chosen_count": ml_llm_count,
+            "template_chosen_count": total_funcs - ml_llm_count,
+        },
+        "per_function_decisions": ml_decisions,
+    }
+
+    out_file = results_dir / "ml_comparison.json"
+    with open(out_file, "w") as f:
+        import json as _json2
+        _json2.dump(comparison, f, indent=2)
+
+    # Results table
+    res_table = Table(title="3-Way Strategy Comparison", show_header=True)
+    res_table.add_column("Metric", style="cyan", min_width=24)
+    res_table.add_column("Always-LLM", style="red", justify="right")
+    res_table.add_column("Always-Template", style="dim", justify="right")
+    res_table.add_column("ML-Guided", style="green", justify="right")
+
+    res_table.add_row("Avg Line Coverage",
+                      f"{always_llm_lc:.1f}%", f"{always_tmpl_lc:.1f}%", f"{ml_lc:.1f}%")
+    res_table.add_row("Pass Rate",
+                      f"{comparison['always_llm']['pass_rate']:.1f}%",
+                      f"{comparison['always_template']['pass_rate']:.1f}%",
+                      f"{comparison['ml_guided']['pass_rate']:.1f}%")
+    res_table.add_row("API Calls Used",
+                      str(total_funcs), "0", str(ml_llm_count))
+    res_table.add_row("API Calls Saved",
+                      "0", str(total_funcs), str(ml_api_saved))
+    res_table.add_row("API Savings %", "0%", "100%", f"{ml_api_savings_pct}%")
+    console.print(res_table)
+
+    delta = comparison["ml_guided"]["coverage_delta_vs_always_llm"]
+    delta_str = f"[green]+{delta:.2f}[/green]" if delta >= 0 else f"[red]{delta:.2f}[/red]"
+    console.print(f"\nCoverage delta (ML-guided vs always-LLM): {delta_str} pp")
+    console.print(f"ML chose LLM for [bold]{ml_llm_count}/{total_funcs}[/bold] functions "
+                  f"([bold]{100*ml_llm_count/total_funcs:.1f}%[/bold])")
+    console.print(f"\n[bold green]Results saved to:[/bold green] {out_file}")
+
+    # Generate ML charts
+    artifact = selector.get_artifact()
+    ml_viz_data = {
+        "comparison": comparison,
+        "feature_importances": selector.get_feature_importances().to_dict(orient="records"),
+        "confusion_matrix_cv": artifact.get("confusion_matrix_cv_aggregate", [[0, 0], [0, 0]]),
+        "cv_metrics": artifact.get("cv_metrics", {}),
+    }
+    create_ml_charts(ml_viz_data, graphs_dir)
+
+
 if __name__ == '__main__':
     main()

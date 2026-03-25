@@ -645,3 +645,289 @@ if __name__ == "__main__":
     output_dir = Path("test_graphs")
     create_all_charts(sample_data, output_dir)
     print(f"Charts saved to {output_dir}")
+
+
+# ---------------------------------------------------------------------------
+# ML Strategy Selector Visualizations
+# ---------------------------------------------------------------------------
+
+# Feature category colours — used to distinguish feature types in bar charts
+_FEATURE_CATEGORIES = {
+    "body_line_count": "structural",
+    "param_count": "structural",
+    "has_return_value": "structural",
+    "body_char_count": "structural",
+    "avg_line_length": "structural",
+    "cyclomatic_complexity": "complexity",
+    "loop_count": "complexity",
+    "conditional_count": "complexity",
+    "return_count": "complexity",
+    "early_return_count": "complexity",
+    "nested_depth": "complexity",
+    "null_check_count": "complexity",
+    "recursion_likely": "complexity",
+    "has_pointer_params": "type",
+    "has_output_params": "type",
+    "param_has_string": "type",
+    "param_has_array": "type",
+    "has_option_return": "type",
+    "has_result_return": "type",
+    "has_generic_params": "type",
+    "is_async": "type",
+    "language": "language",
+}
+
+_CATEGORY_COLORS = {
+    "structural": "#3498db",
+    "complexity": "#e67e22",
+    "type": "#27ae60",
+    "language": "#9b59b6",
+}
+
+
+def create_feature_importance_chart(model_data: List[Dict], output_path: Path):
+    """
+    Horizontal bar chart of top-15 feature importances, coloured by category.
+
+    Args:
+        model_data: list of {'feature': str, 'importance': float} dicts
+                    (from MLStrategySelector.get_feature_importances().to_dict('records'))
+        output_path: where to save the PNG
+    """
+    df = sorted(model_data, key=lambda x: x["importance"], reverse=True)[:15]
+    features = [d["feature"] for d in df]
+    importances = [d["importance"] for d in df]
+    colors = [_CATEGORY_COLORS.get(_FEATURE_CATEGORIES.get(f, "structural"), "#3498db")
+              for f in features]
+
+    fig, ax = plt.subplots(figsize=(10, 8))
+    bars = ax.barh(range(len(features)), importances, color=colors, edgecolor="white", height=0.7)
+    ax.set_yticks(range(len(features)))
+    ax.set_yticklabels(features, fontsize=11)
+    ax.invert_yaxis()
+    ax.set_xlabel("Feature Importance", fontsize=12)
+    ax.set_title("ML Model — Top Feature Importances\n(Random Forest, Gini impurity)", fontsize=14, fontweight="bold")
+
+    # Annotate bars
+    for bar, val in zip(bars, importances):
+        ax.text(val + 0.001, bar.get_y() + bar.get_height() / 2,
+                f"{val:.3f}", va="center", ha="left", fontsize=9)
+
+    # Legend
+    legend_handles = [
+        mpatches.Patch(color=_CATEGORY_COLORS[cat], label=cat.capitalize())
+        for cat in ["structural", "complexity", "type", "language"]
+    ]
+    ax.legend(handles=legend_handles, loc="lower right", fontsize=10)
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close()
+    print(f"  Saved: {output_path.name}")
+
+
+def create_ml_confusion_matrix(cm_data: List[List[int]], output_path: Path):
+    """
+    2×2 seaborn heatmap of the cross-validation aggregate confusion matrix.
+
+    Args:
+        cm_data: [[TN, FP], [FN, TP]] — rows = actual, cols = predicted
+        output_path: where to save the PNG
+    """
+    cm = np.array(cm_data)
+    total = cm.sum()
+    labels = np.array([
+        [f"{cm[0,0]}\n({100*cm[0,0]/max(total,1):.1f}%)", f"{cm[0,1]}\n({100*cm[0,1]/max(total,1):.1f}%)"],
+        [f"{cm[1,0]}\n({100*cm[1,0]/max(total,1):.1f}%)", f"{cm[1,1]}\n({100*cm[1,1]/max(total,1):.1f}%)"],
+    ])
+
+    fig, ax = plt.subplots(figsize=(7, 6))
+    sns.heatmap(
+        cm, annot=labels, fmt="", cmap="Blues", ax=ax,
+        xticklabels=["Predicted: Template", "Predicted: LLM"],
+        yticklabels=["Actual: Template", "Actual: LLM"],
+        linewidths=1, linecolor="white", cbar_kws={"label": "Count"},
+    )
+    ax.set_title("ML Strategy Selector — Confusion Matrix\n(5-fold CV aggregate)", fontsize=14, fontweight="bold")
+    ax.set_ylabel("Actual Strategy", fontsize=12)
+    ax.set_xlabel("Predicted Strategy", fontsize=12)
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close()
+    print(f"  Saved: {output_path.name}")
+
+
+def create_ml_vs_baselines_chart(comparison_data: Dict, output_path: Path):
+    """
+    Grouped bar chart: always-LLM vs always-template vs ML-guided across key metrics.
+    This is the headline chart for the thesis.
+
+    Args:
+        comparison_data: the 'comparison' sub-dict from ml_comparison.json
+        output_path: where to save the PNG
+    """
+    always_llm = comparison_data.get("always_llm", {})
+    always_tmpl = comparison_data.get("always_template", {})
+    ml_guided = comparison_data.get("ml_guided", {})
+    total = comparison_data.get("total_functions", 1)
+
+    metrics = ["Avg Line\nCoverage (%)", "Pass Rate (%)", "API Calls\n(% of max)"]
+    llm_vals = [
+        always_llm.get("avg_line_coverage", 0),
+        always_llm.get("pass_rate", 0),
+        100.0,  # always uses 100% of possible API calls
+    ]
+    tmpl_vals = [
+        always_tmpl.get("avg_line_coverage", 0),
+        always_tmpl.get("pass_rate", 0),
+        0.0,
+    ]
+    ml_vals = [
+        ml_guided.get("avg_line_coverage", 0),
+        ml_guided.get("pass_rate", 0),
+        round(100.0 * ml_guided.get("api_calls", 0) / max(total, 1), 1),
+    ]
+
+    x = np.arange(len(metrics))
+    width = 0.25
+
+    fig, ax = plt.subplots(figsize=(12, 7))
+    bars_llm = ax.bar(x - width, llm_vals, width, label="Always-LLM", color="#e74c3c", alpha=0.85, edgecolor="white")
+    bars_tmpl = ax.bar(x, tmpl_vals, width, label="Always-Template", color="#95a5a6", alpha=0.85, edgecolor="white")
+    bars_ml = ax.bar(x + width, ml_vals, width, label="ML-Guided", color="#2ecc71", alpha=0.85, edgecolor="white")
+
+    # Annotate bars
+    for bars in [bars_llm, bars_tmpl, bars_ml]:
+        for bar in bars:
+            h = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width() / 2, h + 0.5,
+                    f"{h:.1f}", ha="center", va="bottom", fontsize=9, fontweight="bold")
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(metrics, fontsize=12)
+    ax.set_ylabel("Value", fontsize=12)
+    ax.set_ylim(0, 115)
+    ax.set_title("ML-Guided vs Baselines — Performance Comparison\n(lower API calls = more efficient; higher coverage = better quality)",
+                 fontsize=13, fontweight="bold")
+    ax.legend(fontsize=11)
+    ax.axhline(y=100, color="gray", linestyle="--", linewidth=0.7, alpha=0.5)
+
+    # Annotate API savings
+    savings_pct = ml_guided.get("api_savings_pct", 0)
+    ax.annotate(
+        f"ML saves {savings_pct}% API calls\nvs always-LLM",
+        xy=(x[2] + width, ml_vals[2]),
+        xytext=(x[2] + width + 0.35, ml_vals[2] + 15),
+        arrowprops=dict(arrowstyle="->", color="#2c3e50"),
+        fontsize=10, color="#2c3e50",
+    )
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close()
+    print(f"  Saved: {output_path.name}")
+
+
+def create_strategy_distribution_chart(ml_data: Dict, output_path: Path):
+    """
+    Two subplots: (left) overall pie of LLM vs template choices;
+    (right) stacked bars per benchmark showing strategy proportion.
+
+    Args:
+        ml_data: the full ml_comparison.json dict
+        output_path: where to save the PNG
+    """
+    ml_guided = ml_data.get("comparison", ml_data).get("ml_guided", {})
+    decisions = ml_data.get("comparison", ml_data).get("per_function_decisions", [])
+
+    llm_count = ml_guided.get("llm_chosen_count", 0)
+    tmpl_count = ml_guided.get("template_chosen_count", 0)
+    total = llm_count + tmpl_count
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+
+    # --- Left: overall pie ---
+    if total > 0:
+        sizes = [llm_count, tmpl_count]
+        labels_pie = [f"LLM\n({llm_count} functions)", f"Template\n({tmpl_count} functions)"]
+        colors_pie = ["#e74c3c", "#95a5a6"]
+        wedges, texts, autotexts = ax1.pie(
+            sizes, labels=labels_pie, colors=colors_pie,
+            autopct="%1.1f%%", startangle=90,
+            wedgeprops={"edgecolor": "white", "linewidth": 2},
+        )
+        for at in autotexts:
+            at.set_fontsize(12)
+            at.set_fontweight("bold")
+    ax1.set_title("Overall Strategy Distribution\n(ML-guided decisions)", fontsize=13, fontweight="bold")
+
+    # --- Right: per-benchmark stacked bars ---
+    if decisions:
+        bench_counts: Dict[str, Dict[str, int]] = {}
+        for d in decisions:
+            key = f"{d['benchmark']}\n({d['language']})"
+            bench_counts.setdefault(key, {"llm": 0, "template": 0})
+            bench_counts[key][d["ml_strategy"]] += 1
+
+        benches = list(bench_counts.keys())
+        llm_vals = [bench_counts[b]["llm"] for b in benches]
+        tmpl_vals = [bench_counts[b]["template"] for b in benches]
+        y_pos = np.arange(len(benches))
+
+        ax2.barh(y_pos, llm_vals, color="#e74c3c", alpha=0.85, label="LLM", edgecolor="white")
+        ax2.barh(y_pos, tmpl_vals, left=llm_vals, color="#95a5a6", alpha=0.85, label="Template", edgecolor="white")
+
+        ax2.set_yticks(y_pos)
+        ax2.set_yticklabels(benches, fontsize=10)
+        ax2.set_xlabel("Number of Functions", fontsize=11)
+        ax2.set_title("Strategy Chosen per Benchmark", fontsize=13, fontweight="bold")
+        ax2.legend(fontsize=10)
+
+        # Annotate totals
+        for i, (l, t) in enumerate(zip(llm_vals, tmpl_vals)):
+            ax2.text(l + t + 0.1, i, str(l + t), va="center", fontsize=9)
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close()
+    print(f"  Saved: {output_path.name}")
+
+
+def create_ml_charts(ml_viz_data: Dict, output_dir: Path):
+    """
+    Generate all ML strategy selector visualizations.
+
+    Args:
+        ml_viz_data: dict with keys:
+            - 'comparison': the ml_comparison.json comparison dict
+            - 'feature_importances': list of {feature, importance} records
+            - 'confusion_matrix_cv': [[TN,FP],[FN,TP]] aggregate from CV
+            - 'cv_metrics': CV scoring dict
+        output_dir: directory to save PNGs
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    print("Generating ML visualizations...")
+
+    feature_importances = ml_viz_data.get("feature_importances", [])
+    cm = ml_viz_data.get("confusion_matrix_cv", [[0, 0], [0, 0]])
+    comparison = ml_viz_data.get("comparison", {})
+
+    create_feature_importance_chart(
+        feature_importances,
+        output_dir / "feature_importance.png",
+    )
+    create_ml_confusion_matrix(
+        cm,
+        output_dir / "confusion_matrix.png",
+    )
+    create_ml_vs_baselines_chart(
+        comparison,
+        output_dir / "ml_vs_baselines.png",
+    )
+    create_strategy_distribution_chart(
+        {"comparison": comparison},
+        output_dir / "strategy_distribution.png",
+    )

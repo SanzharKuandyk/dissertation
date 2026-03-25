@@ -16,16 +16,25 @@ setup(
         "pandas>=2.0.0",
         "matplotlib>=3.7.0",
         "seaborn>=0.12.0",
+        "scikit-learn>=1.3.0",
+        "joblib>=1.3.0",
+        "numpy>=1.24.0",
     ],
     extras_require={
         "llm": [
             "openai>=1.0.0",
             "anthropic>=0.18.0",
         ],
+        "ml": [
+            "scikit-learn>=1.3.0",
+            "joblib>=1.3.0",
+        ],
         "full": [
             "openai>=1.0.0",
             "anthropic>=0.18.0",
             "tree-sitter>=0.20.0",
+            "scikit-learn>=1.3.0",
+            "joblib>=1.3.0",
         ],
     },
     entry_points={

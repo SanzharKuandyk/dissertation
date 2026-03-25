@@ -469,3 +469,163 @@ mod tests {{
             description=f"Template-based tests for {function.raw_signature}",
             edge_cases_covered=["basic values only"]
         )
+
+    def generate_cpp_tests(self, function) -> GeneratedTest:
+        """
+        Generate template-based C++ unit tests.
+
+        C++ keyword safety rules applied here:
+          - Function name is sanitised against the full C++ keyword set before use
+          - Variable names for test arguments use a prefixed scheme (arg0_, arg1_,
+            ...) that cannot clash with any C++ keyword or standard-library name
+          - nullptr is used instead of NULL / 0 for pointer parameters
+          - std::string literals are used for string parameters
+          - Test function is named test_cpp_<func> to avoid collisions with
+            functions in the translation unit under test
+          - No 'using namespace std' — all std:: types are fully qualified
+          - assert() from <cassert>, output via std::cout from <iostream>
+        """
+        from ..parsers.cpp_parser import CPP_KEYWORDS
+
+        func_name = function.name
+        # Sanitise: if the name is a C++ keyword (shouldn't happen after parsing,
+        # but be defensive), prefix it
+        if func_name in CPP_KEYWORDS:
+            func_name = f"fn_{func_name}"
+
+        test_fn_name = f"test_cpp_{func_name}"
+        params = function.parameters  # list of (type_str, param_name)
+
+        # Build argument lists for several test call variants
+        # using safe prefixed variable names (arg0_, arg1_, …)
+        arg_vars = []
+        arg_decls_basic = []    # declarations with zero/default values
+        arg_decls_edge  = []    # declarations with edge-case values
+        ptr_checks      = []    # nullptr pointer guards
+
+        for idx, (ptype, _pname) in enumerate(params):
+            var = f"arg{idx}_"          # safe name: never a keyword
+            pt = ptype.strip()
+
+            if "std::string" in pt or "string" in pt:
+                arg_decls_basic.append(f'    std::string {var} = "hello";')
+                arg_decls_edge.append(f'    std::string {var} = "";')
+                arg_vars.append(var)
+            elif "*" in pt:
+                # Pointer param — use nullptr for the null-check call,
+                # real array for the normal call
+                arg_decls_basic.append(f'    int buf{idx}_[] = {{1, 2, 3, 4, 5}};')
+                arg_decls_basic.append(f'    int* {var} = buf{idx}_;')
+                arg_decls_edge.append(f'    int* {var}_null = nullptr;')
+                arg_vars.append(var)
+                ptr_checks.append((idx, var))
+            elif "bool" in pt:
+                arg_decls_basic.append(f'    bool {var} = true;')
+                arg_decls_edge.append(f'    bool {var} = false;')
+                arg_vars.append(var)
+            elif "double" in pt or "float" in pt:
+                arg_decls_basic.append(f'    double {var} = 1.0;')
+                arg_decls_edge.append(f'    double {var} = 0.0;')
+                arg_vars.append(var)
+            elif "long long" in pt or "int64" in pt:
+                arg_decls_basic.append(f'    long long {var} = 1LL;')
+                arg_decls_edge.append(f'    long long {var} = 0LL;')
+                arg_vars.append(var)
+            elif "long" in pt:
+                arg_decls_basic.append(f'    long {var} = 1L;')
+                arg_decls_edge.append(f'    long {var} = 0L;')
+                arg_vars.append(var)
+            elif "char" in pt and "*" not in pt:
+                arg_decls_basic.append(f'    char {var} = \'a\';')
+                arg_decls_edge.append(f'    char {var} = \'\\0\';')
+                arg_vars.append(var)
+            elif "size_t" in pt or "uint" in pt:
+                arg_decls_basic.append(f'    std::size_t {var} = 3;')
+                arg_decls_edge.append(f'    std::size_t {var} = 0;')
+                arg_vars.append(var)
+            else:
+                # Default: treat as int
+                arg_decls_basic.append(f'    int {var} = 1;')
+                arg_decls_edge.append(f'    int {var} = 0;')
+                arg_vars.append(var)
+
+        args_str = ", ".join(arg_vars)
+
+        # Return type determines how we capture / assert the result
+        ret = function.return_type.strip()
+        if ret == "void":
+            call_basic = f"    {func_name}({args_str});"
+            call_edge  = f"    {func_name}({args_str});"
+            assert_basic = ""
+            assert_edge  = ""
+        elif "bool" in ret:
+            call_basic = f"    bool result_basic_ = {func_name}({args_str});"
+            call_edge  = f"    bool result_edge_ = {func_name}({args_str});"
+            assert_basic = "    // result_basic_ is true or false — both are valid"
+            assert_edge  = "    // result_edge_ is true or false — both are valid"
+        elif "std::string" in ret or "string" in ret:
+            call_basic = f"    std::string result_basic_ = {func_name}({args_str});"
+            call_edge  = f"    std::string result_edge_ = {func_name}({args_str});"
+            assert_basic = "    assert(!result_basic_.empty() || result_basic_.empty()); // non-crash check"
+            assert_edge  = "    assert(!result_edge_.empty() || result_edge_.empty());"
+        elif "*" in ret:
+            call_basic = f"    auto* result_basic_ = {func_name}({args_str});"
+            call_edge  = f"    auto* result_edge_ = {func_name}({args_str});"
+            assert_basic = "    // pointer result — nullptr is valid"
+            assert_edge  = ""
+        else:
+            # Numeric return
+            call_basic = f"    auto result_basic_ = {func_name}({args_str});"
+            call_edge  = f"    auto result_edge_ = {func_name}({args_str});"
+            assert_basic = "    (void)result_basic_; // suppress unused-variable warning"
+            assert_edge  = "    (void)result_edge_;"
+
+        # Nullptr calls for pointer params
+        null_calls = []
+        for _idx, pvar in ptr_checks:
+            null_args = ", ".join(
+                f"{pvar}_null" if v == pvar else v
+                for v in arg_vars
+            )
+            null_calls.append(f"    {func_name}({null_args}); // nullptr safety check")
+
+        basic_block  = "\n".join(arg_decls_basic)
+        edge_block   = "\n".join(arg_decls_edge)
+        null_block   = "\n".join(null_calls)
+
+        test_code = f"""// Template-generated C++ tests for: {function.raw_signature}
+// Generated by MLTest TemplateTestGenerator
+
+#include <cassert>
+#include <iostream>
+#include <string>
+#include <cstddef>
+#include <climits>
+
+void {test_fn_name}() {{
+    std::cout << "Testing {func_name}...\\n";
+
+    // --- Basic call ---
+{basic_block}
+{call_basic}
+{assert_basic}
+
+    // --- Edge / zero call ---
+{edge_block}
+{call_edge}
+{assert_edge}
+{"" if not null_block else "    // --- Null-pointer safety ---"}
+{null_block}
+
+    std::cout << "  {func_name}: basic tests passed\\n";
+}}
+"""
+
+        return GeneratedTest(
+            function_name=func_name,
+            test_code=test_code,
+            test_name=test_fn_name,
+            language="cpp",
+            description=f"Template-based C++ tests for {function.raw_signature}",
+            edge_cases_covered=["zero values", "null pointers", "empty strings"],
+        )
