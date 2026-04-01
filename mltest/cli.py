@@ -1,5 +1,5 @@
 """
-MLTest CLI - Command-line interface for ML-driven test generation
+MLTest CLI - screening, LLM-assisted generation, and evaluation workflows.
 """
 
 import click
@@ -13,22 +13,128 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 console = Console()
+LANGUAGE_LABELS = {"c": "C", "cpp": "C++", "rust": "Rust"}
 
 
 @click.group()
 @click.version_option(version="0.1.0")
 def main():
-    """MLTest - Machine Learning-Driven Unit Test Generator
+    """MLTest - static screening and LLM-assisted unit testing.
 
-    Generate comprehensive unit tests for C and Rust code using LLM technology.
+    Screen C, C++, and Rust functions for LLM suitability, then generate and
+    run tests for the languages that are supported end to end.
     """
     pass
 
 
 @main.command()
+@click.argument("source_file", type=click.Path(exists=True, dir_okay=False))
+@click.option(
+    "--language",
+    "-l",
+    type=click.Choice(["c", "rust", "cpp", "auto"]),
+    default="auto",
+    help="Source language (auto-detect by default)",
+)
+@click.option(
+    "--model-path",
+    default="models/strategy_selector.joblib",
+    type=click.Path(exists=True, dir_okay=False),
+    show_default=True,
+    help="Path to the trained suitability model",
+)
+@click.option("--output", "-o", type=click.Path(), default=None, help="Optional JSON output path")
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["table", "json"]),
+    default="table",
+    show_default=True,
+    help="Console output format",
+)
+@click.option("--top", type=int, default=None, help="Limit displayed functions to the top N scores")
+def screen(
+    source_file: str,
+    language: str,
+    model_path: str,
+    output: Optional[str],
+    output_format: str,
+    top: Optional[int],
+):
+    """Screen a source file for LLM test-generation suitability.
+
+    Example: mltest screen benchmarks/c/math_utils.c
+    """
+    from .ml.strategy_selector import MLStrategySelector
+
+    source_path = Path(source_file)
+    resolved_language = _detect_language(source_path, language, {"c", "rust", "cpp"})
+    source_code = source_path.read_text(encoding="utf-8", errors="ignore")
+
+    console.print(
+        Panel.fit(
+            f"[bold blue]MLTest Screening[/bold blue]\n"
+            f"Ranking {source_path.name} for LLM suitability",
+            border_style="blue",
+        )
+    )
+    console.print(f"Language: {LANGUAGE_LABELS.get(resolved_language, resolved_language)}")
+    console.print(f"Model: {Path(model_path)}")
+
+    console.print("Parsing source file...")
+    functions = _parse_source(source_code, resolved_language)
+    if not functions:
+        console.print("[yellow]No testable functions found.[/yellow]")
+        return
+
+    console.print(f"Found {len(functions)} testable function(s)")
+    console.print("Loading suitability model...")
+    selector = MLStrategySelector()
+    selector.load_model(Path(model_path))
+
+    console.print("Scoring functions...")
+    scored_functions = []
+    for func in functions:
+        score = selector.score_function(func, resolved_language)
+        scored_functions.append(
+            {
+                "name": func.name,
+                "line_start": int(getattr(func, "line_start", 0) or 0),
+                "line_end": int(getattr(func, "line_end", 0) or 0),
+                "llm_suitability_score": round(score["llm_suitability_score"], 4),
+                "bucket": score["bucket"],
+                "predicted_label": score["predicted_label"],
+            }
+        )
+
+    report = _build_screening_report(
+        source_path=source_path,
+        language=resolved_language,
+        model_path=Path(model_path),
+        scored_functions=scored_functions,
+    )
+
+    display_report = report
+    if top is not None and top > 0:
+        display_report = dict(report)
+        display_report["functions"] = report["functions"][:top]
+
+    if output_format == "json":
+        console.print_json(json.dumps(display_report, indent=2))
+    else:
+        _display_screening_table(display_report)
+
+    if output:
+        output_path = Path(output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+        console.print(f"[green]Screening report written to {output_path}[/green]")
+
+
+@main.command()
 @click.argument('source_file', type=click.Path(exists=True))
 @click.option('--language', '-l', type=click.Choice(['c', 'rust', 'auto']),
-              default='auto', help='Source language (auto-detect by default)')
+              default='auto', help='Source language for generation (C and Rust only)')
 @click.option('--provider', '-p', type=click.Choice(['openai', 'anthropic', 'template']),
               default='openai', help='LLM provider or template baseline')
 @click.option('--output', '-o', type=click.Path(), default=None,
@@ -42,15 +148,7 @@ def generate(source_file: str, language: str, provider: str,
     """
     source_path = Path(source_file)
 
-    # Auto-detect language
-    if language == 'auto':
-        if source_path.suffix == '.c' or source_path.suffix == '.h':
-            language = 'c'
-        elif source_path.suffix == '.rs':
-            language = 'rust'
-        else:
-            console.print("[red]Cannot auto-detect language. Please specify with -l[/red]")
-            return
+    language = _detect_language(source_path, language, {"c", "rust"})
 
     # Auto-load API key from environment if not provided
     if not api_key:
@@ -108,7 +206,7 @@ def generate(source_file: str, language: str, provider: str,
 @click.argument('source_file', type=click.Path(exists=True))
 @click.argument('test_file', type=click.Path(exists=True))
 @click.option('--language', '-l', type=click.Choice(['c', 'rust', 'auto']),
-              default='auto', help='Source language')
+              default='auto', help='Source language for execution (C and Rust only)')
 @click.option('--coverage/--no-coverage', default=True, help='Measure coverage')
 def run(source_file: str, test_file: str, language: str, coverage: bool):
     """Run generated tests and measure coverage.
@@ -118,9 +216,7 @@ def run(source_file: str, test_file: str, language: str, coverage: bool):
     source_path = Path(source_file)
     test_path = Path(test_file)
 
-    # Auto-detect language
-    if language == 'auto':
-        language = 'c' if source_path.suffix in ['.c', '.h'] else 'rust'
+    language = _detect_language(source_path, language, {"c", "rust"})
 
     console.print(Panel(f"[bold]Running tests for {source_path.name}[/bold]"))
 
@@ -260,13 +356,107 @@ def _parse_source(source_code: str, language: str):
     if language == 'c':
         from .parsers.c_parser import CParser
         parser = CParser()
-        parser.parse_source(source_code)
-        return parser.get_testable_functions()
-    else:
+    elif language == 'cpp':
+        from .parsers.cpp_parser import CppParser
+        parser = CppParser()
+    elif language == 'rust':
         from .parsers.rust_parser import RustParser
         parser = RustParser()
-        parser.parse_source(source_code)
-        return parser.get_testable_functions()
+    else:
+        raise click.ClickException(
+            f"Unsupported language '{language}'. Supported values: c, cpp, rust."
+        )
+
+    parser.parse_source(source_code)
+    return parser.get_testable_functions()
+
+
+def _detect_language(source_path: Path, language: str, supported_languages: set[str]) -> str:
+    """Resolve explicit or auto-detected language with scope checks."""
+    if language != 'auto':
+        if language not in supported_languages:
+            supported = ", ".join(sorted(supported_languages))
+            raise click.ClickException(
+                f"Language '{language}' is not supported for this command. Supported: {supported}."
+            )
+        return language
+
+    suffix_map = {
+        '.c': 'c',
+        '.h': 'c',
+        '.rs': 'rust',
+        '.cpp': 'cpp',
+        '.cc': 'cpp',
+        '.cxx': 'cpp',
+        '.hpp': 'cpp',
+        '.hh': 'cpp',
+        '.hxx': 'cpp',
+    }
+    detected = suffix_map.get(source_path.suffix.lower())
+    if not detected or detected not in supported_languages:
+        supported = ", ".join(sorted(supported_languages))
+        raise click.ClickException(
+            f"Cannot auto-detect a supported language for {source_path.name}. Supported: {supported}."
+        )
+    return detected
+
+
+def _build_screening_report(
+    source_path: Path,
+    language: str,
+    model_path: Path,
+    scored_functions: list[dict],
+) -> dict:
+    """Build a JSON-serializable report for `mltest screen`."""
+    ranked_functions = sorted(
+        scored_functions,
+        key=lambda item: item["llm_suitability_score"],
+        reverse=True,
+    )
+    summary = {
+        "total_functions": len(ranked_functions),
+        "good_candidate_count": sum(1 for item in ranked_functions if item["bucket"] == "good_candidate"),
+        "borderline_count": sum(1 for item in ranked_functions if item["bucket"] == "borderline"),
+        "risky_count": sum(1 for item in ranked_functions if item["bucket"] == "risky"),
+    }
+    return {
+        "source_file": str(source_path.resolve()),
+        "language": language,
+        "model_path": str(model_path.resolve()),
+        "summary": summary,
+        "functions": ranked_functions,
+    }
+
+
+def _display_screening_table(report: dict):
+    """Render screening results as a ranked table."""
+    table = Table(title="LLM Suitability Screening")
+    table.add_column("Rank", justify="right", style="dim")
+    table.add_column("Function", style="cyan")
+    table.add_column("Lines", justify="right")
+    table.add_column("Score", justify="right", style="green")
+    table.add_column("Bucket")
+    table.add_column("Prediction")
+
+    for index, item in enumerate(report["functions"], start=1):
+        table.add_row(
+            str(index),
+            item["name"],
+            f"{item['line_start']}-{item['line_end']}",
+            f"{item['llm_suitability_score']:.3f}",
+            item["bucket"],
+            item["predicted_label"],
+        )
+
+    console.print(table)
+    summary = report["summary"]
+    console.print(
+        "Summary: "
+        f"{summary['total_functions']} total | "
+        f"{summary['good_candidate_count']} good | "
+        f"{summary['borderline_count']} borderline | "
+        f"{summary['risky_count']} risky"
+    )
 
 
 def _generate_test(func, language: str, provider: str, api_key: Optional[str]):

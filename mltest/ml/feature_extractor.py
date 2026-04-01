@@ -1,9 +1,9 @@
 """
-Feature extraction for ML strategy selection.
+Feature extraction for LLM suitability prediction.
 
-Extracts code complexity and structural features from parsed C and Rust
-function objects. These features are used to train and run the ML model
-that decides which test generation strategy (LLM vs template) to use.
+Extracts code complexity and structural features from parsed C, C++, and Rust
+function objects. These features are used to train and run the ML model that
+scores how suitable a function is for LLM-based test generation.
 """
 
 import re
@@ -11,6 +11,7 @@ from typing import Union, List, Dict
 import pandas as pd
 
 from ..parsers.c_parser import CFunction
+from ..parsers.cpp_parser import CppFunction
 from ..parsers.rust_parser import RustFunction
 
 # Ordered list — this is the single source of truth for column ordering.
@@ -56,14 +57,14 @@ class FunctionFeatureExtractor:
     FEATURE_NAMES = FEATURE_NAMES
 
     def extract(
-        self, func: Union[CFunction, RustFunction], language: str
+        self, func: Union[CFunction, CppFunction, RustFunction], language: str
     ) -> Dict[str, float]:
         """
         Extract features from a single parsed function.
 
         Args:
-            func: A CFunction or RustFunction dataclass instance.
-            language: 'c' or 'rust'
+            func: A parsed function dataclass instance.
+            language: 'c', 'cpp', or 'rust'
 
         Returns:
             Dict mapping feature name → float value, with keys in FEATURE_NAMES order.
@@ -160,7 +161,7 @@ class FunctionFeatureExtractor:
         }
 
     def extract_batch(
-        self, funcs: List[Union[CFunction, RustFunction]], language: str
+        self, funcs: List[Union[CFunction, CppFunction, RustFunction]], language: str
     ) -> pd.DataFrame:
         """Extract features for a list of functions, returning a DataFrame."""
         rows = [self.extract(f, language) for f in funcs]

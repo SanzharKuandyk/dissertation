@@ -1,11 +1,10 @@
 """
-ML Strategy Selector — core ML component of the dissertation.
+LLM suitability predictor based on static code features.
 
-Trains a Random Forest classifier that learns which test generation strategy
-(LLM vs template) achieves higher code coverage for a given function, based
-on code complexity features.  At inference time the model selects the strategy
-per function, enabling intelligent orchestration that reduces unnecessary API
-calls while maintaining near-LLM coverage.
+The current model is trained on a binary label derived from LLM coverage
+quality. During inference we interpret the positive-class probability as an
+LLM suitability score, which supports both screening/triage and the legacy
+routing workflow.
 """
 
 import json
@@ -18,27 +17,30 @@ import joblib
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import StratifiedKFold, cross_validate
-from sklearn.metrics import confusion_matrix, classification_report
 
-from .feature_extractor import FunctionFeatureExtractor, FEATURE_NAMES
-from ..parsers.c_parser import CParser, CFunction
-from ..parsers.rust_parser import RustParser, RustFunction
-from ..parsers.cpp_parser import CppParser, CppFunction
+from .feature_extractor import FEATURE_NAMES, FunctionFeatureExtractor
+from ..parsers.c_parser import CFunction, CParser
+from ..parsers.cpp_parser import CppFunction, CppParser
+from ..parsers.rust_parser import RustFunction, RustParser
 
 logger = logging.getLogger(__name__)
 
 # Coverage quality threshold: functions where LLM achieves >= this percentage
-# are labelled 1 ("high-quality testable") and get LLM generation in the
-# ML-guided pipeline.  Functions below are labelled 0 ("complex/hard") and
-# get template generation to save API cost.  When set to -1 (auto), the
-# median LLM coverage across the training set is used, giving a balanced split.
+# are labelled 1 ("high-quality testable"). When set to -1 (auto), the median
+# LLM coverage across the training set is used to create a balanced split.
 COVERAGE_QUALITY_THRESHOLD = -1  # -1 = use median (recommended)
+
+GOOD_CANDIDATE_THRESHOLD = 0.70
+BORDERLINE_THRESHOLD = 0.40
+
+ParsedFunction = Union[CFunction, RustFunction, CppFunction]
 
 
 class MLStrategySelector:
     """
-    Trains and applies an ML model to select the best test generation strategy.
+    Trains and applies an ML model for LLM suitability prediction.
 
     Usage (training):
         selector = MLStrategySelector()
@@ -51,14 +53,14 @@ class MLStrategySelector:
     Usage (inference):
         selector = MLStrategySelector()
         selector.load_model(Path("models/strategy_selector.joblib"))
-        strategy = selector.predict(func, language="c")  # 'llm' or 'template'
+        score = selector.score_function(func, language="c")
     """
 
     def __init__(self):
         self.model: Optional[RandomForestClassifier] = None
         self.feature_names: List[str] = FEATURE_NAMES
         self.extractor = FunctionFeatureExtractor()
-        self._artifact: Optional[Dict] = None  # full saved artifact dict
+        self._artifact: Optional[Dict] = None
 
     # ------------------------------------------------------------------
     # Training
@@ -74,7 +76,7 @@ class MLStrategySelector:
         coverage_threshold: float = COVERAGE_QUALITY_THRESHOLD,
     ) -> Dict:
         """
-        Train the strategy selector from existing benchmark results.
+        Train the suitability model from existing benchmark results.
 
         Steps:
           1. Load paired (LLM vs template) results from results.json
@@ -90,14 +92,13 @@ class MLStrategySelector:
         paired_df = self._load_paired_results(results_path, coverage_threshold)
 
         logger.info("Building feature dataset from %s", benchmarks_dir)
-        X, y, matched_df = self._build_feature_dataset(paired_df, benchmarks_dir)
+        X, y, _matched_df = self._build_feature_dataset(paired_df, benchmarks_dir)
 
         logger.info(
             "Dataset: %d samples, %d features | class distribution: %s",
-            len(y), X.shape[1], y.value_counts().to_dict()
+            len(y), X.shape[1], y.value_counts().to_dict(),
         )
 
-        # Warn if class imbalance is severe
         minority_frac = y.value_counts(normalize=True).min()
         if minority_frac < 0.30:
             warnings.warn(
@@ -123,7 +124,6 @@ class MLStrategySelector:
                 clf, X, y, cv=cv, scoring=scoring, return_train_score=True
             )
 
-        # Compute per-fold confusion matrices (handle single-class folds gracefully)
         fold_cms = []
         for train_idx, test_idx in cv.split(X, y):
             clf_fold = RandomForestClassifier(
@@ -137,25 +137,20 @@ class MLStrategySelector:
             cm_fold = confusion_matrix(y.iloc[test_idx], y_pred, labels=[0, 1])
             fold_cms.append(cm_fold.tolist())
 
-        # Aggregate confusion matrix across folds
         agg_cm = np.array(fold_cms).sum(axis=0).tolist()
 
-        # Train final model on all data
         logger.info("Training final model on full dataset...")
         clf.fit(X, y)
         self.model = clf
 
-        # Build metrics dict
         cv_metrics = {
-            k: {"mean": float(v.mean()), "std": float(v.std())}
-            for k, v in cv_results.items()
+            key: {"mean": float(values.mean()), "std": float(values.std())}
+            for key, values in cv_results.items()
         }
 
-        # Full classification report on training data (informational)
         train_preds = clf.predict(X)
         train_report = classification_report(y, train_preds, output_dict=True)
 
-        # Resolve actual threshold used (may be auto/median)
         actual_threshold = float(paired_df["coverage_threshold_used"].iloc[0])
 
         artifact = {
@@ -197,45 +192,59 @@ class MLStrategySelector:
         self.model = artifact["model"]
         self.feature_names = artifact["feature_names"]
         self._artifact = artifact
-        logger.info("Model loaded from %s (%d training samples)",
-                    model_path, artifact.get("training_samples", "?"))
+        logger.info(
+            "Model loaded from %s (%d training samples)",
+            model_path,
+            artifact.get("training_samples", "?"),
+        )
 
-    def predict(
-        self, func: Union[CFunction, RustFunction], language: str
-    ) -> str:
+    def predict(self, func: ParsedFunction, language: str) -> str:
         """
-        Predict the best test generation strategy for a function.
+        Predict the recommended downstream strategy for a function.
 
         Returns:
             'llm' or 'template'
         """
-        if self.model is None:
-            raise RuntimeError("Model not loaded. Call train() or load_model() first.")
-        features = self.extractor.extract(func, language)
-        X = pd.DataFrame([features])[self.feature_names]
-        pred = self.model.predict(X)[0]
-        return "llm" if pred == 1 else "template"
+        return self.score_function(func, language)["recommended_strategy"]
 
-    def predict_proba(
-        self, func: Union[CFunction, RustFunction], language: str
-    ) -> Dict[str, float]:
+    def predict_proba(self, func: ParsedFunction, language: str) -> Dict[str, float]:
         """
         Return probability estimates for each strategy.
 
         Returns:
             {'llm': 0.73, 'template': 0.27}
         """
+        return self.score_function(func, language)["probabilities"]
+
+    def score_function(self, func: ParsedFunction, language: str) -> Dict:
+        """
+        Score a function for LLM suitability.
+
+        Returns:
+            Dict containing score, bucket, predicted label, strategy, and features.
+        """
         if self.model is None:
             raise RuntimeError("Model not loaded. Call train() or load_model() first.")
+
         features = self.extractor.extract(func, language)
         X = pd.DataFrame([features])[self.feature_names]
+        pred = int(self.model.predict(X)[0])
         proba = self.model.predict_proba(X)[0]
-        # classes_ is [0, 1] → [template, llm]
         classes = self.model.classes_
         proba_map = dict(zip(classes, proba))
+        llm_score = float(proba_map.get(1, 0.0))
+        template_score = float(proba_map.get(0, 0.0))
+
         return {
-            "llm": float(proba_map.get(1, 0.0)),
-            "template": float(proba_map.get(0, 0.0)),
+            "llm_suitability_score": llm_score,
+            "bucket": self._bucket_for_score(llm_score),
+            "predicted_label": "high_llm_success" if pred == 1 else "low_llm_success",
+            "recommended_strategy": "llm" if pred == 1 else "template",
+            "probabilities": {
+                "llm": llm_score,
+                "template": template_score,
+            },
+            "features": features,
         }
 
     def get_feature_importances(self) -> pd.DataFrame:
@@ -243,19 +252,29 @@ class MLStrategySelector:
         if self.model is None:
             raise RuntimeError("Model not loaded.")
         importances = self.model.feature_importances_
-        df = pd.DataFrame({
-            "feature": self.feature_names,
-            "importance": importances,
-        }).sort_values("importance", ascending=False).reset_index(drop=True)
+        df = pd.DataFrame(
+            {
+                "feature": self.feature_names,
+                "importance": importances,
+            }
+        ).sort_values("importance", ascending=False).reset_index(drop=True)
         return df
 
     def get_artifact(self) -> Optional[Dict]:
-        """Return the full saved artifact dict (includes CV metrics etc.)."""
+        """Return the full saved artifact dict."""
         return self._artifact
 
     # ------------------------------------------------------------------
-    # Private: data loading
+    # Private helpers
     # ------------------------------------------------------------------
+
+    def _bucket_for_score(self, llm_score: float) -> str:
+        """Map an LLM suitability score to a screening bucket."""
+        if llm_score >= GOOD_CANDIDATE_THRESHOLD:
+            return "good_candidate"
+        if llm_score >= BORDERLINE_THRESHOLD:
+            return "borderline"
+        return "risky"
 
     def _load_paired_results(
         self, results_path: Path, coverage_threshold: float
@@ -263,34 +282,23 @@ class MLStrategySelector:
         """
         Load results.json and join LLM vs template results per function.
 
-        Label definition (binary classification):
-          Label 1 ("high-quality"): LLM achieves >= threshold line coverage.
-                                    These functions are "LLM-testable" — ML
-                                    predicts high coverage, pipeline uses LLM.
-          Label 0 ("complex/hard"):  LLM achieves < threshold line coverage.
-                                    Pipeline uses template to save API cost.
+        Label definition:
+          Label 1: LLM achieves >= threshold line coverage.
+          Label 0: LLM achieves < threshold line coverage.
 
         When coverage_threshold == -1 (default), the median LLM coverage
-        across the dataset is used, producing a balanced 50/50 class split.
-
-        Returns a DataFrame with one row per unique (benchmark, language, function).
+        across the dataset is used, producing a balanced class split.
         """
-        with open(results_path) as f:
+        with open(results_path, encoding="utf-8") as f:
             data = json.load(f)
 
-        # Index: {(benchmark_name, language, generator_type): {func_name: result_dict}}
-        index: Dict[Tuple, Dict] = {}
+        index: Dict[Tuple[str, str, str], Dict] = {}
         for bench in data.get("benchmarks", []):
             key = (bench["benchmark_name"], bench["language"], bench["generator_type"])
-            index[key] = {
-                r["function_name"]: r
-                for r in bench.get("function_results", [])
-            }
+            index[key] = {r["function_name"]: r for r in bench.get("function_results", [])}
 
         rows = []
-        bench_lang_pairs = set()
-        for (bname, lang, _gtype) in index:
-            bench_lang_pairs.add((bname, lang))
+        bench_lang_pairs = {(bname, lang) for (bname, lang, _gtype) in index}
 
         for bname, lang in bench_lang_pairs:
             llm_funcs = index.get((bname, lang, "llm"), {})
@@ -301,26 +309,28 @@ class MLStrategySelector:
                     continue
                 llm_r = llm_funcs[func_name]
                 tmpl_r = tmpl_funcs[func_name]
-                rows.append({
-                    "benchmark_name": bname,
-                    "language": lang,
-                    "function_name": func_name,
-                    "llm_line_coverage": llm_r.get("line_coverage", 0.0),
-                    "llm_branch_coverage": llm_r.get("branch_coverage", 0.0),
-                    "llm_test_passed": int(llm_r.get("test_passed", False)),
-                    "template_line_coverage": tmpl_r.get("line_coverage", 0.0),
-                    "template_branch_coverage": tmpl_r.get("branch_coverage", 0.0),
-                    "template_test_passed": int(tmpl_r.get("test_passed", False)),
-                })
+                rows.append(
+                    {
+                        "benchmark_name": bname,
+                        "language": lang,
+                        "function_name": func_name,
+                        "llm_line_coverage": llm_r.get("line_coverage", 0.0),
+                        "llm_branch_coverage": llm_r.get("branch_coverage", 0.0),
+                        "llm_test_passed": int(llm_r.get("test_passed", False)),
+                        "template_line_coverage": tmpl_r.get("line_coverage", 0.0),
+                        "template_branch_coverage": tmpl_r.get("branch_coverage", 0.0),
+                        "template_test_passed": int(tmpl_r.get("test_passed", False)),
+                    }
+                )
 
         df = pd.DataFrame(rows)
 
-        # Determine threshold (auto = median split for balanced classes)
         if coverage_threshold < 0:
             threshold = float(df["llm_line_coverage"].median())
             logger.info(
                 "Auto-threshold: median LLM coverage = %.2f%% "
-                "(label=1 if llm_line_coverage >= threshold)", threshold
+                "(label=1 if llm_line_coverage >= threshold)",
+                threshold,
             )
         else:
             threshold = float(coverage_threshold)
@@ -331,7 +341,9 @@ class MLStrategySelector:
 
         logger.info(
             "Loaded %d paired results | label=1 (high cov): %d, label=0 (low cov): %d",
-            len(df), df["label"].sum(), (df["label"] == 0).sum()
+            len(df),
+            df["label"].sum(),
+            (df["label"] == 0).sum(),
         )
         return df
 
@@ -352,9 +364,7 @@ class MLStrategySelector:
         c_parser = CParser()
         rust_parser = RustParser()
         cpp_parser = CppParser()
-
-        # Cache parsed files to avoid re-parsing the same file multiple times
-        parse_cache: Dict[Path, List] = {}
+        parse_cache: Dict[Path, List[ParsedFunction]] = {}
 
         for idx, row in results_df.iterrows():
             lang = row["language"]
@@ -372,23 +382,18 @@ class MLStrategySelector:
                 continue
 
             filepath = benchmarks_dir / lang / f"{bname}{ext}"
-
             if not filepath.exists():
                 logger.warning("Benchmark file not found: %s (skipping %s)", filepath, func_name)
                 continue
 
             if filepath not in parse_cache:
                 source = filepath.read_text(encoding="utf-8")
-                # CppParser is stateful — use a fresh instance per file
                 if lang == "cpp":
-                    p = CppParser()
-                    parse_cache[filepath] = p.parse_source(source)
-                else:
-                    parse_cache[filepath] = parser.parse_source(source)
+                    parser = CppParser()
+                parse_cache[filepath] = parser.parse_source(source)
 
             functions = parse_cache[filepath]
             func = next((f for f in functions if f.name == func_name), None)
-
             if func is None:
                 logger.warning("Function '%s' not found in %s (skipping)", func_name, filepath)
                 continue
@@ -403,7 +408,7 @@ class MLStrategySelector:
         unmatched = total - matched
         if unmatched > 0:
             logger.warning("%d/%d functions could not be matched to source", unmatched, total)
-        if unmatched / total > 0.20:
+        if total and unmatched / total > 0.20:
             raise RuntimeError(
                 f"Too many unmatched functions ({unmatched}/{total}). "
                 "Check that benchmark files match the results.json entries."

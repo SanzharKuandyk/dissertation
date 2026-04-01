@@ -1,5 +1,5 @@
 """
-Visualization Module - Generate charts and graphs for evaluation results
+Visualization helpers for evaluation and screening artifacts.
 """
 
 import json
@@ -313,13 +313,15 @@ def create_coverage_distribution(data: Dict, output_path: Path):
 
 
 def create_language_comparison(data: Dict, output_path: Path):
-    """Create chart comparing C vs Rust results"""
+    """Create chart comparing language-level coverage results."""
     benchmarks = data.get('benchmarks', [])
 
     if not benchmarks:
         return
 
-    lang_data = {'c': {'llm': [], 'template': []}, 'rust': {'llm': [], 'template': []}}
+    language_order = ['c', 'cpp', 'rust']
+    language_labels = {'c': 'C', 'cpp': 'C++', 'rust': 'Rust'}
+    lang_data = {lang: {'llm': [], 'template': []} for lang in language_order}
 
     for b in benchmarks:
         lang = b['language']
@@ -327,25 +329,36 @@ def create_language_comparison(data: Dict, output_path: Path):
         if lang in lang_data:
             lang_data[lang][gen_type].append(b['total_line_coverage'])
 
+    available_languages = [
+        lang for lang in language_order
+        if lang_data[lang]['llm'] or lang_data[lang]['template']
+    ]
+    if not available_languages:
+        return
+
     fig, ax = plt.subplots(figsize=(10, 6))
 
-    x = np.arange(2)  # C and Rust
-    width = 0.2
+    x = np.arange(len(available_languages))
+    width = 0.35
 
-    c_llm = np.mean(lang_data['c']['llm']) if lang_data['c']['llm'] else 0
-    c_template = np.mean(lang_data['c']['template']) if lang_data['c']['template'] else 0
-    rust_llm = np.mean(lang_data['rust']['llm']) if lang_data['rust']['llm'] else 0
-    rust_template = np.mean(lang_data['rust']['template']) if lang_data['rust']['template'] else 0
+    llm_values = [
+        np.mean(lang_data[lang]['llm']) if lang_data[lang]['llm'] else 0
+        for lang in available_languages
+    ]
+    template_values = [
+        np.mean(lang_data[lang]['template']) if lang_data[lang]['template'] else 0
+        for lang in available_languages
+    ]
 
-    bars1 = ax.bar(x - width/2, [c_llm, rust_llm], width, label='ML-Generated',
+    bars1 = ax.bar(x - width/2, llm_values, width, label='LLM-Generated',
                    color='#2ecc71', edgecolor='black')
-    bars2 = ax.bar(x + width/2, [c_template, rust_template], width, label='Template',
+    bars2 = ax.bar(x + width/2, template_values, width, label='Template',
                    color='#e74c3c', edgecolor='black')
 
     ax.set_ylabel('Average Line Coverage (%)', fontsize=12, fontweight='bold')
     ax.set_title('Coverage by Language', fontsize=14, fontweight='bold')
     ax.set_xticks(x)
-    ax.set_xticklabels(['C', 'Rust'], fontsize=12)
+    ax.set_xticklabels([language_labels[lang] for lang in available_languages], fontsize=12)
     ax.legend()
     ax.set_ylim(0, 110)
 
@@ -370,7 +383,7 @@ def create_language_comparison(data: Dict, output_path: Path):
 
 
 def create_architecture_diagram(output_path: Path):
-    """Create a professional architecture diagram for the MLTest tool"""
+    """Create a high-level workflow diagram for the MLTest tool."""
     fig, ax = plt.subplots(figsize=(14, 8))
     ax.set_xlim(0, 14)
     ax.set_ylim(0, 8)
@@ -396,7 +409,7 @@ def create_architecture_diagram(output_path: Path):
                                          boxstyle="round,pad=0.02,rounding_size=0.2",
                                          facecolor=header_color, edgecolor=header_color)
     ax.add_patch(title_bar)
-    ax.text(7, 7, 'MLTest Tool', fontsize=20, fontweight='bold',
+    ax.text(7, 7, 'MLTest Workflow', fontsize=20, fontweight='bold',
             color='white', ha='center', va='center')
 
     # Component boxes
@@ -413,38 +426,38 @@ def create_architecture_diagram(output_path: Path):
     ax.add_patch(parser_box)
     ax.text(1 + box_width/2, y_top + box_height - 0.4, 'Parsers',
             fontsize=14, fontweight='bold', color='white', ha='center')
-    ax.text(1 + box_width/2, y_top + 0.5, 'C / Rust',
+    ax.text(1 + box_width/2, y_top + 0.5, 'C / C++ / Rust',
             fontsize=12, color='white', ha='center')
 
-    # Generators box
+    # Screening box
     gen_box = mpatches.FancyBboxPatch((5.4, y_top), box_width, box_height,
                                        boxstyle="round,pad=0.05,rounding_size=0.15",
                                        facecolor=generator_color, edgecolor='#27ae60',
                                        linewidth=2, alpha=0.9)
     ax.add_patch(gen_box)
-    ax.text(5.4 + box_width/2, y_top + box_height - 0.4, 'Generators',
+    ax.text(5.4 + box_width/2, y_top + box_height - 0.4, 'Screening',
             fontsize=14, fontweight='bold', color='white', ha='center')
-    ax.text(5.4 + box_width/2, y_top + 0.5, 'LLM / Template',
+    ax.text(5.4 + box_width/2, y_top + 0.5, '22 Features + RF',
             fontsize=12, color='white', ha='center')
 
-    # Runners box
+    # Downstream generation box
     runner_box = mpatches.FancyBboxPatch((9.8, y_top), box_width, box_height,
                                           boxstyle="round,pad=0.05,rounding_size=0.15",
                                           facecolor=runner_color, edgecolor='#c0392b',
                                           linewidth=2, alpha=0.9)
     ax.add_patch(runner_box)
-    ax.text(9.8 + box_width/2, y_top + box_height - 0.4, 'Runners',
+    ax.text(9.8 + box_width/2, y_top + box_height - 0.4, 'Generation',
             fontsize=14, fontweight='bold', color='white', ha='center')
-    ax.text(9.8 + box_width/2, y_top + 0.5, 'Compile / Execute',
+    ax.text(9.8 + box_width/2, y_top + 0.5, 'LLM / Template / Run',
             fontsize=12, color='white', ha='center')
 
-    # Coverage Analyzer box (bottom, spans width)
+    # Reports box (bottom, spans width)
     analyzer_box = mpatches.FancyBboxPatch((1, y_bottom), 12, 1.5,
                                             boxstyle="round,pad=0.05,rounding_size=0.15",
                                             facecolor=analyzer_color, edgecolor='#8e44ad',
                                             linewidth=2, alpha=0.9)
     ax.add_patch(analyzer_box)
-    ax.text(7, y_bottom + 0.75, 'Coverage Analyzer & Metrics',
+    ax.text(7, y_bottom + 0.75, 'Reports, Rankings & Visualizations',
             fontsize=14, fontweight='bold', color='white', ha='center')
 
     # Horizontal arrows between top boxes
@@ -706,7 +719,11 @@ def create_feature_importance_chart(model_data: List[Dict], output_path: Path):
     ax.set_yticklabels(features, fontsize=11)
     ax.invert_yaxis()
     ax.set_xlabel("Feature Importance", fontsize=12)
-    ax.set_title("ML Model — Top Feature Importances\n(Random Forest, Gini impurity)", fontsize=14, fontweight="bold")
+    ax.set_title(
+        "LLM Suitability Predictor - Top Feature Importances\n(Random Forest, Gini impurity)",
+        fontsize=14,
+        fontweight="bold",
+    )
 
     # Annotate bars
     for bar, val in zip(bars, importances):
@@ -930,4 +947,100 @@ def create_ml_charts(ml_viz_data: Dict, output_dir: Path):
     create_strategy_distribution_chart(
         {"comparison": comparison},
         output_dir / "strategy_distribution.png",
+    )
+
+
+def _collect_screened_functions(screening_data: Dict) -> List[Dict]:
+    """Flatten all screened functions from the report structure."""
+    if screening_data.get("functions"):
+        return screening_data["functions"]
+
+    functions: List[Dict] = []
+    for file_entry in screening_data.get("files", []):
+        for func in file_entry.get("functions", []):
+            merged = dict(func)
+            merged.setdefault("language", file_entry.get("language"))
+            merged.setdefault("source_file", file_entry.get("source_file"))
+            functions.append(merged)
+    return functions
+
+
+def create_llm_suitability_distribution_chart(screening_data: Dict, output_path: Path):
+    """Create a histogram of predicted LLM suitability scores."""
+    functions = _collect_screened_functions(screening_data)
+    if not functions:
+        return
+
+    scores = [func["llm_suitability_score"] for func in functions]
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.hist(scores, bins=12, color="#1f77b4", edgecolor="white", alpha=0.9)
+    ax.axvline(0.70, color="#2ca02c", linestyle="--", linewidth=2, label="Good candidate")
+    ax.axvline(0.40, color="#ff7f0e", linestyle="--", linewidth=2, label="Borderline")
+    ax.set_title("Distribution of LLM Suitability Scores", fontsize=14, fontweight="bold")
+    ax.set_xlabel("LLM suitability score", fontsize=12)
+    ax.set_ylabel("Function count", fontsize=12)
+    ax.set_xlim(0, 1)
+    ax.legend()
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close()
+    print(f"  Saved: {output_path.name}")
+
+
+def create_candidate_breakdown_by_language_chart(screening_data: Dict, output_path: Path):
+    """Create a stacked bar chart of screening buckets by language."""
+    language_breakdown = screening_data.get("language_breakdown", {})
+    if not language_breakdown:
+        return
+
+    language_order = ["c", "cpp", "rust"]
+    labels = {"c": "C", "cpp": "C++", "rust": "Rust"}
+    languages = [lang for lang in language_order if lang in language_breakdown]
+    if not languages:
+        return
+
+    good = [language_breakdown[lang].get("good_candidate_count", 0) for lang in languages]
+    borderline = [language_breakdown[lang].get("borderline_count", 0) for lang in languages]
+    risky = [language_breakdown[lang].get("risky_count", 0) for lang in languages]
+    x = np.arange(len(languages))
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.bar(x, good, color="#2ca02c", edgecolor="white", label="Good candidate")
+    ax.bar(x, borderline, bottom=good, color="#ffbf00", edgecolor="white", label="Borderline")
+    ax.bar(
+        x,
+        risky,
+        bottom=np.array(good) + np.array(borderline),
+        color="#d62728",
+        edgecolor="white",
+        label="Risky",
+    )
+
+    ax.set_title("Candidate Buckets by Language", fontsize=14, fontweight="bold")
+    ax.set_xlabel("Language", fontsize=12)
+    ax.set_ylabel("Function count", fontsize=12)
+    ax.set_xticks(x)
+    ax.set_xticklabels([labels[lang] for lang in languages], fontsize=12)
+    ax.legend()
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close()
+    print(f"  Saved: {output_path.name}")
+
+
+def create_screening_charts(screening_data: Dict, output_dir: Path):
+    """Generate the primary charts for the screening/testability narrative."""
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    create_llm_suitability_distribution_chart(
+        screening_data,
+        output_dir / "llm_suitability_distribution.png",
+    )
+    create_candidate_breakdown_by_language_chart(
+        screening_data,
+        output_dir / "llm_candidate_breakdown_by_language.png",
     )

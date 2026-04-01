@@ -20,7 +20,13 @@ from mltest.generators.llm_generator import LLMTestGenerator, TemplateTestGenera
 from mltest.runners.c_runner import CTestRunner
 from mltest.runners.rust_runner import RustTestRunner
 from mltest.coverage.analyzer import CoverageAnalyzer, FunctionCoverage
-from mltest.visualization import create_all_charts, create_ml_charts
+from mltest.visualization import (
+    create_all_charts,
+    create_architecture_diagram,
+    create_feature_importance_chart,
+    create_ml_charts,
+    create_screening_charts,
+)
 from mltest.ml import MLStrategySelector
 
 
@@ -662,6 +668,147 @@ def run_ml_guided_evaluation(
     return comparison
 
 
+def generate_llm_testability_artifacts(
+    benchmarks_dir: Path = None,
+    results_dir: Path = None,
+    graphs_dir: Path = None,
+    model_path: Path = None,
+) -> dict:
+    """
+    Generate screening-oriented artifacts from the existing model and benchmarks.
+
+    Outputs:
+      - results/llm_testability_report.json
+      - graphs/llm_suitability_distribution.png
+      - graphs/llm_candidate_breakdown_by_language.png
+      - refreshed architecture_diagram.png
+      - refreshed feature_importance.png
+    """
+    base_dir = Path(__file__).parent
+    benchmarks_dir = benchmarks_dir or base_dir / "benchmarks"
+    results_dir = results_dir or base_dir / "results"
+    graphs_dir = graphs_dir or base_dir / "graphs"
+    model_path = model_path or base_dir / "models" / "strategy_selector.joblib"
+
+    if not model_path.exists():
+        raise FileNotFoundError(f"Trained model not found at {model_path}. Run train-model first.")
+    if not benchmarks_dir.exists():
+        raise FileNotFoundError(f"Benchmark directory not found at {benchmarks_dir}.")
+
+    results_dir.mkdir(parents=True, exist_ok=True)
+    graphs_dir.mkdir(parents=True, exist_ok=True)
+
+    selector = MLStrategySelector()
+    selector.load_model(model_path)
+
+    parser_map = {
+        "c": CParser,
+        "cpp": CppParser,
+        "rust": RustParser,
+    }
+    extension_map = {
+        "c": "*.c",
+        "cpp": "*.cpp",
+        "rust": "*.rs",
+    }
+
+    files = []
+    flat_functions = []
+
+    for language in ["c", "cpp", "rust"]:
+        language_dir = benchmarks_dir / language
+        if not language_dir.exists():
+            continue
+
+        for source_path in sorted(language_dir.glob(extension_map[language])):
+            parser = parser_map[language]()
+            source_code = source_path.read_text(encoding="utf-8", errors="ignore")
+            parser.parse_source(source_code)
+            functions = parser.get_testable_functions()
+
+            scored_functions = []
+            for func in functions:
+                score = selector.score_function(func, language)
+                entry = {
+                    "name": func.name,
+                    "line_start": int(getattr(func, "line_start", 0) or 0),
+                    "line_end": int(getattr(func, "line_end", 0) or 0),
+                    "llm_suitability_score": round(score["llm_suitability_score"], 4),
+                    "bucket": score["bucket"],
+                    "predicted_label": score["predicted_label"],
+                    "language": language,
+                    "benchmark_name": source_path.stem,
+                    "source_file": str(source_path.resolve()),
+                }
+                scored_functions.append(entry)
+                flat_functions.append(entry)
+
+            scored_functions.sort(
+                key=lambda item: item["llm_suitability_score"],
+                reverse=True,
+            )
+            files.append(
+                {
+                    "benchmark_name": source_path.stem,
+                    "language": language,
+                    "source_file": str(source_path.resolve()),
+                    "summary": _summarize_screening_entries(scored_functions),
+                    "functions": scored_functions,
+                }
+            )
+
+    flat_functions.sort(key=lambda item: item["llm_suitability_score"], reverse=True)
+    language_breakdown = {}
+    for language in ["c", "cpp", "rust"]:
+        entries = [entry for entry in flat_functions if entry["language"] == language]
+        if entries:
+            language_breakdown[language] = _summarize_screening_entries(entries)
+
+    report = {
+        "generated_at": datetime.now().isoformat(),
+        "model_path": str(model_path.resolve()),
+        "benchmarks_dir": str(benchmarks_dir.resolve()),
+        "summary": _summarize_screening_entries(flat_functions),
+        "language_breakdown": language_breakdown,
+        "files": files,
+    }
+
+    report_path = results_dir / "llm_testability_report.json"
+    with open(report_path, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2)
+
+    create_architecture_diagram(graphs_dir / "architecture_diagram.png")
+    create_feature_importance_chart(
+        selector.get_feature_importances().to_dict(orient="records"),
+        graphs_dir / "feature_importance.png",
+    )
+    create_screening_charts(report, graphs_dir)
+
+    print("=" * 60)
+    print("LLM TESTABILITY ARTIFACTS GENERATED")
+    print("=" * 60)
+    print(f"Functions scored: {report['summary']['total_functions']}")
+    print(
+        f"Buckets: good={report['summary']['good_candidate_count']}, "
+        f"borderline={report['summary']['borderline_count']}, "
+        f"risky={report['summary']['risky_count']}"
+    )
+    print(f"Report saved to: {report_path}")
+    print(f"Graphs saved to: {graphs_dir}")
+
+    return report
+
+
+def _summarize_screening_entries(entries: list[dict]) -> dict:
+    """Summarize screening buckets for a list of scored functions."""
+    return {
+        "total_functions": len(entries),
+        "good_candidate_count": sum(1 for entry in entries if entry["bucket"] == "good_candidate"),
+        "borderline_count": sum(1 for entry in entries if entry["bucket"] == "borderline"),
+        "risky_count": sum(1 for entry in entries if entry["bucket"] == "risky"),
+    }
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -674,6 +821,8 @@ if __name__ == "__main__":
                        help="Skip LLM and simulate results")
     parser.add_argument("--ml-guided", action="store_true",
                        help="Run ML-guided evaluation (requires trained model)")
+    parser.add_argument("--screening-artifacts", action="store_true",
+                       help="Generate screening report and primary screening graphs")
     parser.add_argument("--model-path", default="models/strategy_selector.joblib",
                        help="Path to trained ML model")
     parser.add_argument("--correlated", action="store_true",
@@ -683,6 +832,8 @@ if __name__ == "__main__":
 
     if args.correlated:
         generate_correlated_results()
+    elif args.screening_artifacts:
+        generate_llm_testability_artifacts(model_path=Path(args.model_path))
     elif args.demo:
         generate_demo_results()
     elif args.ml_guided:

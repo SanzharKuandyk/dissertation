@@ -1,9 +1,9 @@
 """
-ML Strategy Selector subpackage.
+ML subpackage for static feature extraction and LLM suitability prediction.
 
 Provides:
-  - FunctionFeatureExtractor: extracts code complexity features from parsed functions
-  - MLStrategySelector: trains/infers which test generation strategy maximizes coverage
+  - FunctionFeatureExtractor: extracts code features from parsed functions
+  - MLStrategySelector: trains and scores the current suitability model
 """
 
 from .feature_extractor import FunctionFeatureExtractor

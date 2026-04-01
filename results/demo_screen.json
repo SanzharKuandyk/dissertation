@@ -1,0 +1,133 @@
+{
+  "source_file": "C:\\Projects\\disser\\dissertation\\benchmarks\\cpp\\math_utils.cpp",
+  "language": "cpp",
+  "model_path": "C:\\Projects\\disser\\dissertation\\models\\strategy_selector.joblib",
+  "summary": {
+    "total_functions": 15,
+    "good_candidate_count": 7,
+    "borderline_count": 0,
+    "risky_count": 8
+  },
+  "functions": [
+    {
+      "name": "is_perfect_square",
+      "line_start": 116,
+      "line_end": 121,
+      "llm_suitability_score": 0.91,
+      "bucket": "good_candidate",
+      "predicted_label": "high_llm_success"
+    },
+    {
+      "name": "digit_sum",
+      "line_start": 108,
+      "line_end": 116,
+      "llm_suitability_score": 0.8783,
+      "bucket": "good_candidate",
+      "predicted_label": "high_llm_success"
+    },
+    {
+      "name": "safe_add",
+      "line_start": 4,
+      "line_end": 7,
+      "llm_suitability_score": 0.86,
+      "bucket": "good_candidate",
+      "predicted_label": "high_llm_success"
+    },
+    {
+      "name": "abs_val",
+      "line_start": 93,
+      "line_end": 98,
+      "llm_suitability_score": 0.83,
+      "bucket": "good_candidate",
+      "predicted_label": "high_llm_success"
+    },
+    {
+      "name": "lerp",
+      "line_start": 105,
+      "line_end": 107,
+      "llm_suitability_score": 0.83,
+      "bucket": "good_candidate",
+      "predicted_label": "high_llm_success"
+    },
+    {
+      "name": "is_prime",
+      "line_start": 38,
+      "line_end": 47,
+      "llm_suitability_score": 0.715,
+      "bucket": "good_candidate",
+      "predicted_label": "high_llm_success"
+    },
+    {
+      "name": "fibonacci",
+      "line_start": 61,
+      "line_end": 74,
+      "llm_suitability_score": 0.7,
+      "bucket": "good_candidate",
+      "predicted_label": "high_llm_success"
+    },
+    {
+      "name": "safe_divide",
+      "line_start": 21,
+      "line_end": 29,
+      "llm_suitability_score": 0.28,
+      "bucket": "risky",
+      "predicted_label": "low_llm_success"
+    },
+    {
+      "name": "power",
+      "line_start": 75,
+      "line_end": 85,
+      "llm_suitability_score": 0.23,
+      "bucket": "risky",
+      "predicted_label": "low_llm_success"
+    },
+    {
+      "name": "lcm",
+      "line_start": 32,
+      "line_end": 38,
+      "llm_suitability_score": 0.21,
+      "bucket": "risky",
+      "predicted_label": "low_llm_success"
+    },
+    {
+      "name": "isqrt",
+      "line_start": 85,
+      "line_end": 93,
+      "llm_suitability_score": 0.2033,
+      "bucket": "risky",
+      "predicted_label": "low_llm_success"
+    },
+    {
+      "name": "clamp",
+      "line_start": 98,
+      "line_end": 104,
+      "llm_suitability_score": 0.18,
+      "bucket": "risky",
+      "predicted_label": "low_llm_success"
+    },
+    {
+      "name": "gcd",
+      "line_start": 29,
+      "line_end": 32,
+      "llm_suitability_score": 0.145,
+      "bucket": "risky",
+      "predicted_label": "low_llm_success"
+    },
+    {
+      "name": "safe_multiply",
+      "line_start": 7,
+      "line_end": 21,
+      "llm_suitability_score": 0.14,
+      "bucket": "risky",
+      "predicted_label": "low_llm_success"
+    },
+    {
+      "name": "factorial",
+      "line_start": 47,
+      "line_end": 60,
+      "llm_suitability_score": 0.0533,
+      "bucket": "risky",
+      "predicted_label": "low_llm_success"
+    }
+  ]
+}

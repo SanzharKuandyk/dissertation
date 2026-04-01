@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 setup(
     name="mltest",
     version="0.1.0",
-    description="Machine Learning-Driven Automated Unit Test Generation for System-Level Languages",
+    description="Static screening and LLM-assisted unit test generation for system-level languages",
     author="Dissertation Research",
     packages=find_packages(),
     python_requires=">=3.8",
