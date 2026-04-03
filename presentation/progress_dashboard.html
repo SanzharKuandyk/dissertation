@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MLTest Progress Dashboard</title>
+  <style>
+    :root {
+      --bg: #f4f1e8;
+      --panel: #fffdf8;
+      --ink: #1f2933;
+      --muted: #5c6773;
+      --accent: #0f4c5c;
+      --accent-soft: #e2edf0;
+      --good: #1f7a4d;
+      --borderline: #b7791f;
+      --risky: #b83232;
+      --line: #d7d2c4;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      background:
+        radial-gradient(circle at top left, #fff7da 0, transparent 32%),
+        linear-gradient(180deg, #f6f1e7 0%, #ece6d8 100%);
+      color: var(--ink);
+    }
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px 24px 48px;
+    }
+    .hero {
+      background: linear-gradient(135deg, #163b47 0%, #2b6574 100%);
+      color: white;
+      padding: 28px;
+      border-radius: 20px;
+      box-shadow: 0 18px 40px rgba(16, 42, 51, 0.18);
+    }
+    .hero h1 {
+      margin: 0 0 8px;
+      font-size: 2rem;
+      line-height: 1.15;
+    }
+    .hero p {
+      margin: 0;
+      max-width: 880px;
+      font-size: 1.05rem;
+      color: rgba(255, 255, 255, 0.88);
+    }
+    .meta {
+      margin-top: 14px;
+      font-size: 0.95rem;
+      color: rgba(255, 255, 255, 0.82);
+    }
+    .grid {
+      display: grid;
+      gap: 18px;
+      margin-top: 22px;
+    }
+    .cards {
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+    .two {
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 10px 26px rgba(28, 39, 49, 0.08);
+    }
+    .panel h2, .panel h3 {
+      margin: 0 0 12px;
+      line-height: 1.2;
+    }
+    .stat {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .stat .label {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+    .stat .value {
+      font-size: 2rem;
+      font-weight: 700;
+    }
+    .good { color: var(--good); }
+    .borderline { color: var(--borderline); }
+    .risky { color: var(--risky); }
+    .muted {
+      color: var(--muted);
+    }
+    .language-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .language-card {
+      padding: 14px;
+      border-radius: 14px;
+      background: #f8f5ee;
+      border: 1px solid var(--line);
+    }
+    .language-card h3 {
+      margin-bottom: 10px;
+    }
+    .mini {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.95rem;
+      padding: 4px 0;
+    }
+    ul {
+      margin: 0;
+      padding-left: 20px;
+      line-height: 1.5;
+    }
+    li + li {
+      margin-top: 8px;
+    }
+    code {
+      font-family: Consolas, "Courier New", monospace;
+      background: var(--accent-soft);
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+    .graphs {
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
+    .graph-card img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: white;
+    }
+    .graph-card h3 {
+      margin-bottom: 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    th {
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+    .bucket-pill {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      color: white;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+    .footer {
+      margin-top: 24px;
+      font-size: 0.92rem;
+      color: var(--muted);
+      text-align: center;
+    }
+    @media (max-width: 720px) {
+      .page { padding: 18px 14px 34px; }
+      .hero h1 { font-size: 1.6rem; }
+      .panel { padding: 16px; }
+      table { font-size: 0.88rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>MLTest Progress Dashboard</h1>
+      <p>
+        Midterm review view of the dissertation project: static-code-based prediction
+        of LLM suitability for unit test generation in C, C++, and Rust.
+      </p>
+      <div class="meta">
+        Generated from results\llm_testability_report.json<br>
+        Screening report timestamp: April 01, 2026 10:52
+      </div>
+    </section>
+
+    <section class="grid cards">
+      <div class="panel stat"><div class="label">Total Functions</div><div class="value ">158</div></div>
+      <div class="panel stat"><div class="label">Good Candidates</div><div class="value good">72</div></div>
+      <div class="panel stat"><div class="label">Borderline</div><div class="value borderline">11</div></div>
+      <div class="panel stat"><div class="label">Risky</div><div class="value risky">75</div></div>
+    </section>
+
+    <section class="grid two">
+      <div class="panel">
+        <h2>Current Goal</h2>
+        <ul>
+          <li>Present the dissertation as a screening-first system rather than a broad template-vs-LLM comparison.</li>
+          <li>Show that the implemented model can rank functions by likely LLM usefulness before expensive generation.</li>
+          <li>Demonstrate that the remaining work is final polishing, defense preparation, and presentation refinement.</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h2>Recommended Live Demo</h2>
+        <ul>
+          <li>Run <code>python -m mltest screen benchmarks/c/math_utils.c</code>.</li>
+          <li>Explain the score, bucket, and why this is safer than a live cloud-generation demo.</li>
+          <li>Use this dashboard as the visual summary while answering progress questions.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Language Breakdown</h2>
+      <div class="language-grid">
+        <div class="language-card"><h3>C</h3><div class="mini"><span>Total</span><strong>47</strong></div><div class="mini"><span class="good">Good</span><strong>9</strong></div><div class="mini"><span class="borderline">Borderline</span><strong>5</strong></div><div class="mini"><span class="risky">Risky</span><strong>33</strong></div></div><div class="language-card"><h3>C++</h3><div class="mini"><span>Total</span><strong>48</strong></div><div class="mini"><span class="good">Good</span><strong>24</strong></div><div class="mini"><span class="borderline">Borderline</span><strong>3</strong></div><div class="mini"><span class="risky">Risky</span><strong>21</strong></div></div><div class="language-card"><h3>Rust</h3><div class="mini"><span>Total</span><strong>63</strong></div><div class="mini"><span class="good">Good</span><strong>39</strong></div><div class="mini"><span class="borderline">Borderline</span><strong>3</strong></div><div class="mini"><span class="risky">Risky</span><strong>21</strong></div></div>
+      </div>
+    </section>
+
+    <section class="grid graphs">
+      <div class="panel graph-card"><h3>System Architecture</h3><img src="../graphs/architecture_diagram.png" alt="System Architecture"></div><div class="panel graph-card"><h3>Feature Importance</h3><img src="../graphs/feature_importance.png" alt="Feature Importance"></div><div class="panel graph-card"><h3>Suitability Distribution</h3><img src="../graphs/llm_suitability_distribution.png" alt="Suitability Distribution"></div><div class="panel graph-card"><h3>Bucket Breakdown by Language</h3><img src="../graphs/llm_candidate_breakdown_by_language.png" alt="Bucket Breakdown by Language"></div>
+    </section>
+
+    <section class="grid two">
+      <div class="panel">
+        <h2>What Is Already Done</h2>
+        <ul>
+          <li>Benchmark corpus prepared across C, C++, and Rust.</li>
+          <li>Static feature extraction and trained Random Forest model are integrated into the project.</li>
+          <li>Runnable screening workflow is available through <code>mltest screen</code>.</li>
+          <li>Primary figures and evaluation artifacts have been generated.</li>
+          <li>The thesis manuscript has already been rewritten around the narrowed scope.</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h2>What Still Needs To Be Done</h2>
+        <ul>
+          <li>Final polishing of slides, narration, and defense wording.</li>
+          <li>Short stable demo preparation around the screening workflow.</li>
+          <li>Final cleanup of appendix vs. main-claim materials in the defense assets.</li>
+          <li>Practice concise answers for scope, model target, usefulness, and limitations.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="grid two">
+      <div class="panel">
+        <h2>Top Candidate Functions</h2>
+        <table><thead><tr><th>Function</th><th>Language</th><th>Benchmark</th><th>Score</th><th>Bucket</th></tr></thead><tbody><tr><td>slice_min</td><td>Rust</td><td>data_structures</td><td>1.000</td><td><span class="bucket-pill" style="background:#1f7a4d">good_candidate</span></td></tr><tr><td>slice_max</td><td>Rust</td><td>data_structures</td><td>1.000</td><td><span class="bucket-pill" style="background:#1f7a4d">good_candidate</span></td></tr><tr><td>starts_with</td><td>Rust</td><td>string_utils</td><td>1.000</td><td><span class="bucket-pill" style="background:#1f7a4d">good_candidate</span></td></tr><tr><td>ends_with</td><td>Rust</td><td>string_utils</td><td>1.000</td><td><span class="bucket-pill" style="background:#1f7a4d">good_candidate</span></td></tr><tr><td>to_uppercase</td><td>Rust</td><td>string_utils</td><td>1.000</td><td><span class="bucket-pill" style="background:#1f7a4d">good_candidate</span></td></tr><tr><td>to_lowercase</td><td>Rust</td><td>string_utils</td><td>1.000</td><td><span class="bucket-pill" style="background:#1f7a4d">good_candidate</span></td></tr><tr><td>find_first_of</td><td>Rust</td><td>string_utils</td><td>1.000</td><td><span class="bucket-pill" style="background:#1f7a4d">good_candidate</span></td></tr><tr><td>split_words</td><td>Rust</td><td>string_utils</td><td>1.000</td><td><span class="bucket-pill" style="background:#1f7a4d">good_candidate</span></td></tr></tbody></table>
+      </div>
+      <div class="panel">
+        <h2>Lowest-Score Functions</h2>
+        <table><thead><tr><th>Function</th><th>Language</th><th>Benchmark</th><th>Score</th><th>Bucket</th></tr></thead><tbody><tr><td>second_largest</td><td>C</td><td>data_structures</td><td>0.000</td><td><span class="bucket-pill" style="background:#b83232">risky</span></td></tr><tr><td>partition</td><td>C</td><td>data_structures</td><td>0.010</td><td><span class="bucket-pill" style="background:#b83232">risky</span></td></tr><tr><td>fibonacci</td><td>C</td><td>math_utils</td><td>0.015</td><td><span class="bucket-pill" style="background:#b83232">risky</span></td></tr><tr><td>remove_duplicates</td><td>C</td><td>data_structures</td><td>0.020</td><td><span class="bucket-pill" style="background:#b83232">risky</span></td></tr><tr><td>two_sum_pairs</td><td>Rust</td><td>data_structures</td><td>0.020</td><td><span class="bucket-pill" style="background:#b83232">risky</span></td></tr><tr><td>array_min</td><td>C</td><td>data_structures</td><td>0.022</td><td><span class="bucket-pill" style="background:#b83232">risky</span></td></tr><tr><td>array_max</td><td>C</td><td>data_structures</td><td>0.022</td><td><span class="bucket-pill" style="background:#b83232">risky</span></td></tr><tr><td>array_reverse</td><td>C</td><td>data_structures</td><td>0.030</td><td><span class="bucket-pill" style="background:#b83232">risky</span></td></tr></tbody></table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Useful Short Answer For Review</h2>
+      <p class="muted">
+        The project is no longer being defined from scratch. The benchmark corpus,
+        feature extraction, model-based screening workflow, figures, and revised
+        thesis narrative are already in place. The remaining work is mainly final
+        polishing, presentation refinement, and defense preparation.
+      </p>
+    </section>
+
+    <div class="footer">
+      MLTest progress dashboard for dissertation review.
+    </div>
+  </div>
+</body>
+</html>

@@ -132,6 +132,64 @@ def screen(
 
 
 @main.command()
+@click.option(
+    "--report",
+    "report_path",
+    type=click.Path(exists=True, dir_okay=False),
+    default="results/llm_testability_report.json",
+    show_default=True,
+    help="Path to the screening report JSON",
+)
+@click.option(
+    "--graphs-dir",
+    type=click.Path(exists=True, file_okay=False),
+    default="graphs",
+    show_default=True,
+    help="Directory containing the presentation graphs",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    default="presentation/progress_dashboard.html",
+    show_default=True,
+    help="Output HTML dashboard path",
+)
+@click.option(
+    "--title",
+    default="MLTest Progress Dashboard",
+    show_default=True,
+    help="Title shown in the generated dashboard",
+)
+def present(report_path: str, graphs_dir: str, output: str, title: str):
+    """Build a static HTML dashboard for progress reviews.
+
+    Example: mltest present --report results/llm_testability_report.json
+    """
+    from .presentation import build_progress_dashboard
+
+    report = Path(report_path)
+    graphs = Path(graphs_dir)
+    output_path = Path(output)
+
+    console.print(
+        Panel.fit(
+            f"[bold blue]MLTest Presentation Dashboard[/bold blue]\n"
+            f"Building a browser-ready progress view from {report.name}",
+            border_style="blue",
+        )
+    )
+
+    generated = build_progress_dashboard(
+        report_path=report,
+        graphs_dir=graphs,
+        output_path=output_path,
+        title=title,
+    )
+    console.print(f"[green]Dashboard written to {generated}[/green]")
+
+
+@main.command()
 @click.argument('source_file', type=click.Path(exists=True))
 @click.option('--language', '-l', type=click.Choice(['c', 'rust', 'auto']),
               default='auto', help='Source language for generation (C and Rust only)')
