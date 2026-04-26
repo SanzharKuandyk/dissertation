@@ -23,6 +23,7 @@ from mltest.coverage.analyzer import CoverageAnalyzer, FunctionCoverage
 from mltest.visualization import (
     create_all_charts,
     create_architecture_diagram,
+    create_dataset_composition_chart,
     create_feature_importance_chart,
     create_ml_charts,
     create_screening_charts,
@@ -777,7 +778,19 @@ def generate_llm_testability_artifacts(
     with open(report_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
 
+    artifact = selector.get_artifact() or {}
     create_architecture_diagram(graphs_dir / "architecture_diagram.png")
+    create_dataset_composition_chart(
+        {
+            "language_counts": {
+                language: summary["total_functions"]
+                for language, summary in language_breakdown.items()
+            },
+            "class_distribution": artifact.get("class_distribution", {}),
+            "label_threshold": artifact.get("label_threshold"),
+        },
+        graphs_dir / "dataset_composition.png",
+    )
     create_feature_importance_chart(
         selector.get_feature_importances().to_dict(orient="records"),
         graphs_dir / "feature_importance.png",

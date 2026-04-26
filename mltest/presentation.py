@@ -281,8 +281,8 @@ def build_progress_dashboard(
       <div class="panel">
         <h2>Recommended Live Demo</h2>
         <ul>
-          <li>Run <code>python -m mltest screen benchmarks/c/math_utils.c</code>.</li>
-          <li>Explain the score, bucket, and why this is safer than a live cloud-generation demo.</li>
+          <li>Run <code>python -m mltest screen benchmarks/cpp/math_utils.cpp</code>.</li>
+          <li>Explain the score, bucket, and why static screening is safer than a live cloud-generation demo.</li>
           <li>Use this dashboard as the visual summary while answering progress questions.</li>
         </ul>
       </div>

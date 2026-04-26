@@ -31,55 +31,84 @@ def create_all_charts(data: Dict, output_dir: Path):
     create_summary_dashboard(data, output_dir / "summary_dashboard.png")
 
 
-def create_coverage_comparison(data: Dict, output_path: Path):
-    """Create bar chart comparing LLM vs Template coverage"""
-    summary = data.get('summary', {})
+def _language_label(language: str) -> str:
+    return {"c": "C", "cpp": "C++", "rust": "Rust"}.get(language, language.upper())
 
-    if 'llm' not in summary or 'template' not in summary:
+
+def _benchmark_entries(data: Dict) -> List[Dict]:
+    """Normalize benchmark entries to unique per-file rows."""
+    benchmarks = data.get("benchmarks", [])
+    entries = []
+
+    for benchmark in benchmarks:
+        entry = dict(benchmark)
+        entry["language_label"] = _language_label(benchmark["language"])
+        entry["benchmark_label"] = f"{entry['language_label']} / {benchmark['benchmark_name']}"
+        entries.append(entry)
+
+    return sorted(
+        entries,
+        key=lambda item: (["c", "cpp", "rust"].index(item["language"]), item["benchmark_name"], item["generator_type"]),
+    )
+
+
+def _paired_function_results(data: Dict) -> List[Dict]:
+    """Collect per-function LLM/template result pairs for scatter-style comparisons."""
+    lookup: Dict[tuple, Dict[str, Any]] = {}
+
+    for benchmark in data.get("benchmarks", []):
+        for func in benchmark.get("function_results", []):
+            key = (benchmark["benchmark_name"], benchmark["language"], func["function_name"])
+            record = lookup.setdefault(
+                key,
+                {
+                    "benchmark_name": benchmark["benchmark_name"],
+                    "language": benchmark["language"],
+                    "function_name": func["function_name"],
+                },
+            )
+            record[benchmark["generator_type"]] = func
+
+    return [
+        record for record in lookup.values()
+        if "llm" in record and "template" in record
+    ]
+
+
+def create_coverage_comparison(data: Dict, output_path: Path):
+    """Create per-function line-coverage scatter for LLM vs template."""
+    paired_results = _paired_function_results(data)
+    if not paired_results:
         return
 
     fig, ax = plt.subplots(figsize=(10, 6))
+    language_colors = {"c": "#1f77b4", "cpp": "#ff7f0e", "rust": "#2ca02c"}
+    plotted_languages = []
 
-    categories = ['Line Coverage', 'Branch Coverage']
-    llm_values = [
-        summary['llm']['avg_line_coverage'],
-        summary['llm']['avg_branch_coverage']
-    ]
-    template_values = [
-        summary['template']['avg_line_coverage'],
-        summary['template']['avg_branch_coverage']
-    ]
+    for language in ["c", "cpp", "rust"]:
+        points = [row for row in paired_results if row["language"] == language]
+        if not points:
+            continue
+        plotted_languages.append(language)
+        ax.scatter(
+            [row["template"]["line_coverage"] for row in points],
+            [row["llm"]["line_coverage"] for row in points],
+            label=_language_label(language),
+            color=language_colors[language],
+            alpha=0.78,
+            s=46,
+            edgecolors="white",
+            linewidths=0.7,
+        )
 
-    x = np.arange(len(categories))
-    width = 0.35
-
-    bars1 = ax.bar(x - width/2, llm_values, width, label='ML-Generated Tests',
-                   color='#2ecc71', edgecolor='black', linewidth=1.2)
-    bars2 = ax.bar(x + width/2, template_values, width, label='Template Baseline',
-                   color='#e74c3c', edgecolor='black', linewidth=1.2)
-
-    ax.set_ylabel('Coverage (%)', fontsize=12, fontweight='bold')
-    ax.set_title('Code Coverage: ML-Generated vs Template Tests',
-                fontsize=14, fontweight='bold')
-    ax.set_xticks(x)
-    ax.set_xticklabels(categories, fontsize=11)
-    ax.legend(loc='upper right', fontsize=10)
+    ax.plot([0, 100], [0, 100], linestyle="--", color="#4a5568", linewidth=1.2, label="Parity line")
+    ax.set_xlabel("Template line coverage (%)", fontsize=12, fontweight="bold")
+    ax.set_ylabel("LLM line coverage (%)", fontsize=12, fontweight="bold")
+    ax.set_title("Per-Function Line Coverage: LLM vs Template", fontsize=14, fontweight="bold")
+    ax.set_xlim(0, 100)
     ax.set_ylim(0, 100)
-
-    # Add value labels on bars
-    for bar in bars1:
-        height = bar.get_height()
-        ax.annotate(f'{height:.1f}%',
-                   xy=(bar.get_x() + bar.get_width() / 2, height),
-                   xytext=(0, 3), textcoords="offset points",
-                   ha='center', va='bottom', fontsize=10, fontweight='bold')
-
-    for bar in bars2:
-        height = bar.get_height()
-        ax.annotate(f'{height:.1f}%',
-                   xy=(bar.get_x() + bar.get_width() / 2, height),
-                   xytext=(0, 3), textcoords="offset points",
-                   ha='center', va='bottom', fontsize=10, fontweight='bold')
+    ax.legend(loc="lower right", fontsize=10)
+    ax.grid(alpha=0.25)
 
     plt.tight_layout()
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
@@ -124,26 +153,22 @@ def create_pass_rate_chart(data: Dict, output_path: Path):
 
 
 def create_benchmark_breakdown(data: Dict, output_path: Path):
-    """Create grouped bar chart showing per-benchmark results"""
-    benchmarks = data.get('benchmarks', [])
-
-    if not benchmarks:
+    """Create grouped bar chart showing per-file benchmark results."""
+    entries = _benchmark_entries(data)
+    if not entries:
         return
 
-    # Group by benchmark name
     benchmark_data = {}
-    for b in benchmarks:
-        name = b['benchmark_name']
-        gen_type = b['generator_type']
-        if name not in benchmark_data:
-            benchmark_data[name] = {}
-        benchmark_data[name][gen_type] = b['total_line_coverage']
+    for entry in entries:
+        label = entry["benchmark_label"]
+        benchmark_data.setdefault(label, {})
+        benchmark_data[label][entry["generator_type"]] = entry["total_line_coverage"]
 
     names = list(benchmark_data.keys())
     llm_coverage = [benchmark_data[n].get('llm', 0) for n in names]
     template_coverage = [benchmark_data[n].get('template', 0) for n in names]
 
-    fig, ax = plt.subplots(figsize=(12, 6))
+    fig, ax = plt.subplots(figsize=(13, 6.5))
 
     x = np.arange(len(names))
     width = 0.35
@@ -154,9 +179,9 @@ def create_benchmark_breakdown(data: Dict, output_path: Path):
                    color='#e74c3c', edgecolor='black')
 
     ax.set_ylabel('Line Coverage (%)', fontsize=12, fontweight='bold')
-    ax.set_title('Coverage by Benchmark', fontsize=14, fontweight='bold')
+    ax.set_title('Coverage by Benchmark File', fontsize=14, fontweight='bold')
     ax.set_xticks(x)
-    ax.set_xticklabels(names, rotation=45, ha='right', fontsize=10)
+    ax.set_xticklabels(names, rotation=40, ha='right', fontsize=9)
     ax.legend(loc='upper right')
     ax.set_ylim(0, 110)
 
@@ -181,36 +206,45 @@ def create_benchmark_breakdown(data: Dict, output_path: Path):
 
 
 def create_improvement_chart(data: Dict, output_path: Path):
-    """Create chart showing improvement of ML over template"""
-    summary = data.get('summary', {})
-
-    if 'improvement' not in summary:
+    """Create per-file line-coverage improvement over template."""
+    entries = _benchmark_entries(data)
+    if not entries:
         return
 
-    improvement = summary['improvement']
+    benchmark_data = {}
+    for entry in entries:
+        label = entry["benchmark_label"]
+        benchmark_data.setdefault(label, {})
+        benchmark_data[label][entry["generator_type"]] = entry["total_line_coverage"]
 
-    fig, ax = plt.subplots(figsize=(10, 6))
+    labels = []
+    values = []
+    for label, values_map in benchmark_data.items():
+        if "llm" in values_map and "template" in values_map:
+            labels.append(label)
+            values.append(values_map["llm"] - values_map["template"])
 
-    metrics = ['Line Coverage', 'Branch Coverage', 'Pass Rate']
-    values = [
-        improvement['line_coverage_improvement'],
-        improvement['branch_coverage_improvement'],
-        improvement['pass_rate_improvement']
-    ]
+    if not values:
+        return
+
+    order = np.argsort(values)
+    labels = [labels[idx] for idx in order]
+    values = [values[idx] for idx in order]
+
+    fig, ax = plt.subplots(figsize=(11, 6.8))
 
     colors = ['#27ae60' if v >= 0 else '#c0392b' for v in values]
-
-    bars = ax.barh(metrics, values, color=colors, edgecolor='black', linewidth=1.2)
+    bars = ax.barh(labels, values, color=colors, edgecolor='black', linewidth=1.0)
 
     ax.axvline(x=0, color='black', linestyle='-', linewidth=0.8)
-    ax.set_xlabel('Improvement (%)', fontsize=12, fontweight='bold')
-    ax.set_title('ML-Generated Tests Improvement over Baseline',
+    ax.set_xlabel('Line coverage improvement (percentage points)', fontsize=12, fontweight='bold')
+    ax.set_title('Line Coverage Improvement by Benchmark File',
                 fontsize=14, fontweight='bold')
 
     # Add value labels
     for bar, val in zip(bars, values):
         width = bar.get_width()
-        ax.annotate(f'{val:+.1f}%',
+        ax.annotate(f'{val:+.1f}',
                    xy=(width, bar.get_y() + bar.get_height() / 2),
                    xytext=(5 if width >= 0 else -5, 0),
                    textcoords="offset points",
@@ -382,6 +416,69 @@ def create_language_comparison(data: Dict, output_path: Path):
     plt.close()
 
 
+def create_dataset_composition_chart(dataset_info: Dict, output_path: Path):
+    """Create a two-panel chart for language composition and class balance."""
+    language_counts = dataset_info.get("language_counts", {})
+    class_distribution = dataset_info.get("class_distribution", {})
+    label_threshold = dataset_info.get("label_threshold")
+
+    languages = [lang for lang in ["c", "cpp", "rust"] if language_counts.get(lang, 0) > 0]
+    if not languages:
+        return
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5.5))
+
+    lang_labels = [_language_label(lang) for lang in languages]
+    lang_values = [language_counts[lang] for lang in languages]
+    lang_colors = ["#1f77b4", "#ff7f0e", "#2ca02c"][:len(languages)]
+    bars = axes[0].bar(lang_labels, lang_values, color=lang_colors, edgecolor="black", linewidth=1.0)
+    axes[0].set_title("Training Samples by Language", fontsize=13, fontweight="bold")
+    axes[0].set_ylabel("Function count", fontsize=12)
+    axes[0].set_ylim(0, max(lang_values) * 1.25)
+    for bar, value in zip(bars, lang_values):
+        axes[0].text(
+            bar.get_x() + bar.get_width() / 2,
+            value + max(lang_values) * 0.03,
+            str(value),
+            ha="center",
+            va="bottom",
+            fontsize=11,
+            fontweight="bold",
+        )
+
+    label0 = int(class_distribution.get(0, class_distribution.get("0", 0)))
+    label1 = int(class_distribution.get(1, class_distribution.get("1", 0)))
+    class_labels = ["Label 0\nBelow threshold", "Label 1\nAt/above threshold"]
+    class_values = [label0, label1]
+    class_colors = ["#c0392b", "#27ae60"]
+    bars = axes[1].bar(class_labels, class_values, color=class_colors, edgecolor="black", linewidth=1.0)
+    axes[1].set_title("Binary Label Balance", fontsize=13, fontweight="bold")
+    axes[1].set_ylabel("Function count", fontsize=12)
+    axes[1].set_ylim(0, max(class_values) * 1.25 if max(class_values) else 1)
+    for bar, value in zip(bars, class_values):
+        axes[1].text(
+            bar.get_x() + bar.get_width() / 2,
+            value + max(class_values) * 0.03 if max(class_values) else 0.03,
+            str(value),
+            ha="center",
+            va="bottom",
+            fontsize=11,
+            fontweight="bold",
+        )
+
+    threshold_note = ""
+    if label_threshold is not None:
+        threshold_note = f"Median-based label threshold: {label_threshold:.2f}% LLM line coverage"
+    fig.suptitle("Training Dataset Composition and Class Balance", fontsize=15, fontweight="bold", y=0.98)
+    if threshold_note:
+        fig.text(0.5, 0.02, threshold_note, ha="center", fontsize=10, color="#4a5568")
+
+    plt.tight_layout(rect=(0, 0.05, 1, 0.95))
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close()
+    print(f"  Saved: {output_path.name}")
+
+
 def create_architecture_diagram(output_path: Path):
     """Create a high-level workflow diagram for the MLTest tool."""
     fig, ax = plt.subplots(figsize=(14, 8))
@@ -502,7 +599,7 @@ def create_architecture_diagram(output_path: Path):
 def create_summary_dashboard(data: Dict, output_path: Path):
     """Create a comprehensive summary dashboard"""
     summary = data.get('summary', {})
-    benchmarks = data.get('benchmarks', [])
+    benchmarks = _benchmark_entries(data)
 
     fig = plt.figure(figsize=(16, 12))
 
@@ -528,7 +625,7 @@ def create_summary_dashboard(data: Dict, output_path: Path):
         ax1.set_xticks(x)
         ax1.set_xticklabels(categories)
         ax1.set_ylabel('%')
-        ax1.set_title('Overall Performance Comparison', fontweight='bold')
+        ax1.set_title('Legacy Evaluation Summary: LLM vs Template', fontweight='bold')
         ax1.legend()
         ax1.set_ylim(0, 100)
 
@@ -537,13 +634,15 @@ def create_summary_dashboard(data: Dict, output_path: Path):
     ax2.axis('off')
     if 'llm' in summary:
         metrics_text = f"""
-        KEY METRICS (ML-Generated)
-        ─────────────────────────
-        Line Coverage:   {summary['llm']['avg_line_coverage']:.1f}%
-        Branch Coverage: {summary['llm']['avg_branch_coverage']:.1f}%
-        Pass Rate:       {summary['llm']['pass_rate']:.1f}%
-        Tests Passed:    {summary['llm']['total_tests_passed']}
-        Tests Failed:    {summary['llm']['total_tests_failed']}
+        LEGACY EVALUATION SNAPSHOT
+        ──────────────────────────
+        Total benchmark files: {summary.get('total_benchmarks', 0) // 2}
+        Total function pairs:  {summary.get('total_functions_tested', 0) // 2}
+
+        LLM line coverage:     {summary['llm']['avg_line_coverage']:.1f}%
+        Template coverage:     {summary['template']['avg_line_coverage']:.1f}%
+        LLM pass rate:         {summary['llm']['pass_rate']:.1f}%
+        Template pass rate:    {summary['template']['pass_rate']:.1f}%
         """
         ax2.text(0.1, 0.5, metrics_text, fontsize=11, family='monospace',
                 verticalalignment='center', bbox=dict(boxstyle='round', facecolor='#ecf0f1'))
@@ -551,11 +650,10 @@ def create_summary_dashboard(data: Dict, output_path: Path):
     # 3. Per-benchmark bar chart (middle, spans all columns)
     ax3 = fig.add_subplot(gs[1, :])
     benchmark_data = {}
-    for b in benchmarks:
-        name = b['benchmark_name']
-        if name not in benchmark_data:
-            benchmark_data[name] = {}
-        benchmark_data[name][b['generator_type']] = b['total_line_coverage']
+    for entry in benchmarks:
+        label = entry["benchmark_label"]
+        benchmark_data.setdefault(label, {})
+        benchmark_data[label][entry['generator_type']] = entry['total_line_coverage']
 
     if benchmark_data:
         names = list(benchmark_data.keys())
@@ -568,9 +666,9 @@ def create_summary_dashboard(data: Dict, output_path: Path):
         ax3.bar(x - width/2, llm_cov, width, label='ML-Generated', color='#2ecc71')
         ax3.bar(x + width/2, template_cov, width, label='Template', color='#e74c3c')
         ax3.set_xticks(x)
-        ax3.set_xticklabels(names, rotation=45, ha='right')
+        ax3.set_xticklabels(names, rotation=40, ha='right')
         ax3.set_ylabel('Line Coverage (%)')
-        ax3.set_title('Coverage by Benchmark', fontweight='bold')
+        ax3.set_title('Coverage by Benchmark File', fontweight='bold')
         ax3.legend()
         ax3.set_ylim(0, 100)
 
@@ -591,13 +689,19 @@ def create_summary_dashboard(data: Dict, output_path: Path):
 
     # 5. Function count by language (bottom center)
     ax5 = fig.add_subplot(gs[2, 1])
-    lang_counts = {'C': 0, 'Rust': 0}
-    for b in benchmarks:
-        lang = 'C' if b['language'] == 'c' else 'Rust'
-        lang_counts[lang] += b['functions_tested']
+    lang_counts = {'C': 0, 'C++': 0, 'Rust': 0}
+    counted_files = set()
+    for entry in benchmarks:
+        file_key = (entry['benchmark_name'], entry['language'])
+        if file_key in counted_files:
+            continue
+        counted_files.add(file_key)
+        lang_counts[_language_label(entry['language'])] += entry['functions_tested']
 
-    ax5.pie(list(lang_counts.values()), labels=list(lang_counts.keys()),
-           autopct='%1.1f%%', colors=['#3498db', '#e67e22'])
+    pie_labels = [label for label, count in lang_counts.items() if count > 0]
+    pie_values = [lang_counts[label] for label in pie_labels]
+    pie_colors = ['#3498db', '#ff7f0e', '#2ca02c'][:len(pie_labels)]
+    ax5.pie(pie_values, labels=pie_labels, autopct='%1.1f%%', colors=pie_colors)
     ax5.set_title('Functions by Language', fontweight='bold')
 
     # 6. Execution time (bottom right)
@@ -612,7 +716,7 @@ def create_summary_dashboard(data: Dict, output_path: Path):
     ax6.set_ylabel('Avg Time (s)')
     ax6.set_title('Execution Time', fontweight='bold')
 
-    plt.suptitle('ML-Driven Test Generation - Evaluation Dashboard',
+    plt.suptitle('Legacy Evaluation Dashboard',
                 fontsize=16, fontweight='bold', y=0.98)
 
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
