@@ -29,7 +29,9 @@ from mltest.visualization import (
     create_architecture_diagram,
     create_dataset_composition_chart,
     create_feature_importance_chart,
+    create_ml_confusion_matrix,
     create_ml_charts,
+    remove_legacy_comparison_graphs,
     create_screening_charts,
 )
 from mltest.ml import MLStrategySelector
@@ -321,11 +323,8 @@ def run_full_evaluation(
 
     print("\n" + analyzer.generate_report())
 
-    print("\nGenerating visualizations...")
-    with open(results_file, encoding="utf-8") as handle:
-        data = json.load(handle)
-    create_all_charts(data, graphs_dir)
-    print(f"Graphs saved to: {graphs_dir}")
+    remove_legacy_comparison_graphs(graphs_dir)
+    print(f"Graphs directory cleaned of legacy comparison outputs: {graphs_dir}")
 
     print("\n" + "=" * 60)
     print("EVALUATION COMPLETE")
@@ -489,11 +488,8 @@ def generate_correlated_results():
     results_file = analyzer.save_results("results.json")
     print(f"\nResults saved to: {results_file}")
     print("\n" + analyzer.generate_report())
-
-    with open(results_file) as f:
-        data = json.load(f)
-    create_all_charts(data, graphs_dir)
-    print(f"Charts saved to: {graphs_dir}")
+    remove_legacy_comparison_graphs(graphs_dir)
+    print(f"Legacy comparison charts removed from: {graphs_dir}")
 
 
 def _simulate_llm_result(func_name: str, language: str) -> FunctionCoverage:
@@ -579,13 +575,8 @@ def generate_demo_results():
     # Generate report
     print("\n" + analyzer.generate_report())
 
-    # Generate visualizations
-    print("\nGenerating visualizations...")
-    with open(results_file) as f:
-        data = json.load(f)
-
-    create_all_charts(data, graphs_dir)
-    print(f"Graphs saved to: {graphs_dir}")
+    remove_legacy_comparison_graphs(graphs_dir)
+    print(f"Legacy comparison charts removed from: {graphs_dir}")
 
     # List generated files
     print("\nGenerated files:")
@@ -924,7 +915,12 @@ def generate_llm_testability_artifacts(
         selector.get_feature_importances().to_dict(orient="records"),
         graphs_dir / "feature_importance.png",
     )
+    create_ml_confusion_matrix(
+        artifact.get("confusion_matrix_cv_aggregate", [[0, 0], [0, 0]]),
+        graphs_dir / "confusion_matrix.png",
+    )
     create_screening_charts(report, graphs_dir)
+    remove_legacy_comparison_graphs(graphs_dir)
 
     print("=" * 60)
     print("LLM TESTABILITY ARTIFACTS GENERATED")

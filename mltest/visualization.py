@@ -15,8 +15,31 @@ plt.style.use('seaborn-v0_8-whitegrid')
 sns.set_palette("husl")
 
 
+LEGACY_COMPARISON_GRAPH_NAMES = [
+    "summary_dashboard.png",
+    "coverage_comparison.png",
+    "coverage_distribution.png",
+    "execution_time.png",
+    "improvement.png",
+    "language_comparison.png",
+    "pass_rate.png",
+    "benchmark_breakdown.png",
+    "ml_vs_baselines.png",
+    "strategy_distribution.png",
+]
+
+
+def remove_legacy_comparison_graphs(output_dir: Path):
+    """Delete legacy routing/comparison graphs that no longer fit the thesis framing."""
+    output_dir = Path(output_dir)
+    for name in LEGACY_COMPARISON_GRAPH_NAMES:
+        path = output_dir / name
+        if path.exists():
+            path.unlink()
+
+
 def create_all_charts(data: Dict, output_dir: Path):
-    """Generate all visualization charts from results data"""
+    """Generate the legacy comparison chart set from results data."""
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
