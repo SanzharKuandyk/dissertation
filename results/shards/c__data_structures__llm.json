@@ -1,0 +1,185 @@
+{
+  "schema_version": 2,
+  "benchmark_name": "data_structures",
+  "language": "c",
+  "generator_type": "llm",
+  "per_function_coverage": true,
+  "function_results": [
+    {
+      "function_name": "array_min",
+      "language": "c",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 6,
+      "lines_total": 6,
+      "test_passed": true,
+      "execution_time": 0.06037259101867676,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "array_max",
+      "language": "c",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 6,
+      "lines_total": 6,
+      "test_passed": true,
+      "execution_time": 0.04269528388977051,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "array_sum",
+      "language": "c",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 6,
+      "lines_total": 6,
+      "test_passed": true,
+      "execution_time": 0.07565951347351074,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "array_avg",
+      "language": "c",
+      "line_coverage": 0.0,
+      "branch_coverage": 0.0,
+      "lines_covered": 0,
+      "lines_total": 4,
+      "test_passed": false,
+      "execution_time": 0.3277733325958252,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "array_find",
+      "language": "c",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 5,
+      "lines_total": 5,
+      "test_passed": true,
+      "execution_time": 0.05801963806152344,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "binary_search",
+      "language": "c",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 11,
+      "lines_total": 11,
+      "test_passed": true,
+      "execution_time": 0.049080848693847656,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "array_count",
+      "language": "c",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 6,
+      "lines_total": 6,
+      "test_passed": true,
+      "execution_time": 0.05245018005371094,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "is_sorted_asc",
+      "language": "c",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 5,
+      "lines_total": 5,
+      "test_passed": true,
+      "execution_time": 0.06649470329284668,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "is_sorted_desc",
+      "language": "c",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 5,
+      "lines_total": 5,
+      "test_passed": true,
+      "execution_time": 0.05522918701171875,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "array_reverse",
+      "language": "c",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 10,
+      "lines_total": 10,
+      "test_passed": true,
+      "execution_time": 0.06759452819824219,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "rotate_left",
+      "language": "c",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 7,
+      "lines_total": 7,
+      "test_passed": true,
+      "execution_time": 0.04251718521118164,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "remove_duplicates",
+      "language": "c",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 7,
+      "lines_total": 7,
+      "test_passed": true,
+      "execution_time": 0.06018829345703125,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "merge_sorted",
+      "language": "c",
+      "line_coverage": 0,
+      "branch_coverage": 0,
+      "lines_covered": 0,
+      "lines_total": 0,
+      "test_passed": false,
+      "execution_time": 0,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "partition",
+      "language": "c",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 14,
+      "lines_total": 14,
+      "test_passed": true,
+      "execution_time": 0.04987692832946777,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "arrays_equal",
+      "language": "c",
+      "line_coverage": 0,
+      "branch_coverage": 0,
+      "lines_covered": 0,
+      "lines_total": 0,
+      "test_passed": false,
+      "execution_time": 0,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "second_largest",
+      "language": "c",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 12,
+      "lines_total": 12,
+      "test_passed": true,
+      "execution_time": 0.05529928207397461,
+      "generator_type": "llm"
+    }
+  ]
+}

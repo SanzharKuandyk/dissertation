@@ -1,0 +1,262 @@
+{
+  "schema_version": 2,
+  "benchmark_name": "data_structures",
+  "language": "rust",
+  "generator_type": "llm",
+  "per_function_coverage": true,
+  "function_results": [
+    {
+      "function_name": "slice_min",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 2,
+      "lines_total": 2,
+      "test_passed": true,
+      "execution_time": 0.7707083225250244,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "slice_max",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 2,
+      "lines_total": 2,
+      "test_passed": true,
+      "execution_time": 0.717440128326416,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "slice_sum",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 2,
+      "lines_total": 2,
+      "test_passed": true,
+      "execution_time": 0.6543262004852295,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "slice_avg",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 4,
+      "lines_total": 4,
+      "test_passed": true,
+      "execution_time": 0.6236801147460938,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "find_index",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 2,
+      "lines_total": 2,
+      "test_passed": true,
+      "execution_time": 0.6634297370910645,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "binary_search",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 2,
+      "lines_total": 2,
+      "test_passed": true,
+      "execution_time": 0.6948177814483643,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "count_value",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 2,
+      "lines_total": 2,
+      "test_passed": true,
+      "execution_time": 0.6313433647155762,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "is_sorted_asc",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 2,
+      "lines_total": 2,
+      "test_passed": true,
+      "execution_time": 0.6613459587097168,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "is_sorted_desc",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 2,
+      "lines_total": 2,
+      "test_passed": true,
+      "execution_time": 0.6015205383300781,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "reverse_vec",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 2,
+      "lines_total": 2,
+      "test_passed": true,
+      "execution_time": 0.601590633392334,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "rotate_left",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 5,
+      "lines_total": 5,
+      "test_passed": true,
+      "execution_time": 0.6446666717529297,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "rotate_right",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 5,
+      "lines_total": 5,
+      "test_passed": true,
+      "execution_time": 0.6333398818969727,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "remove_duplicates_sorted",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 8,
+      "lines_total": 8,
+      "test_passed": true,
+      "execution_time": 0.7294881343841553,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "merge_sorted",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 14,
+      "lines_total": 14,
+      "test_passed": true,
+      "execution_time": 0.6670117378234863,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "partition",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 11,
+      "lines_total": 11,
+      "test_passed": true,
+      "execution_time": 0.621098518371582,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "slices_equal",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 2,
+      "lines_total": 2,
+      "test_passed": true,
+      "execution_time": 0.6238620281219482,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "second_largest",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 15,
+      "lines_total": 15,
+      "test_passed": true,
+      "execution_time": 0.6474716663360596,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "kth_smallest",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 6,
+      "lines_total": 6,
+      "test_passed": true,
+      "execution_time": 0.6657767295837402,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "median",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 10,
+      "lines_total": 10,
+      "test_passed": true,
+      "execution_time": 0.6998043060302734,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "mode",
+      "language": "rust",
+      "line_coverage": 0.0,
+      "branch_coverage": 0.0,
+      "lines_covered": 0,
+      "lines_total": 9,
+      "test_passed": true,
+      "execution_time": 0.6427037715911865,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "two_sum_pairs",
+      "language": "rust",
+      "line_coverage": 0.0,
+      "branch_coverage": 0.0,
+      "lines_covered": 0,
+      "lines_total": 17,
+      "test_passed": true,
+      "execution_time": 0.7010633945465088,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "has_duplicates",
+      "language": "rust",
+      "line_coverage": 0.0,
+      "branch_coverage": 0.0,
+      "lines_covered": 0,
+      "lines_total": 3,
+      "test_passed": true,
+      "execution_time": 0.660499095916748,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "product",
+      "language": "rust",
+      "line_coverage": 0.0,
+      "branch_coverage": 0.0,
+      "lines_covered": 0,
+      "lines_total": 7,
+      "test_passed": true,
+      "execution_time": 0.6632125377655029,
+      "generator_type": "llm"
+    }
+  ]
+}

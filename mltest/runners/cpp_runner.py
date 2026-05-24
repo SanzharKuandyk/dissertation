@@ -1,11 +1,10 @@
 """
-C Test Runner - Compiles and executes generated C tests
+C++ Test Runner - Compiles and executes generated C++ tests
 """
 
+import re
 import subprocess
 import tempfile
-import os
-import re
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
@@ -13,19 +12,19 @@ from typing import List, Optional, Tuple
 
 @dataclass
 class TestResult:
-    """Result of running a test"""
+    """Result of running a test."""
     function_name: str
     passed: bool
     error_message: Optional[str]
-    execution_time: float  # seconds
+    execution_time: float
     output: str
 
 
 @dataclass
 class CoverageResult:
-    """Coverage metrics from test execution"""
-    line_coverage: float  # percentage
-    branch_coverage: float  # percentage
+    """Coverage metrics from test execution."""
+    line_coverage: float
+    branch_coverage: float
     lines_covered: int
     lines_total: int
     branches_covered: int
@@ -35,145 +34,40 @@ class CoverageResult:
     covered_lines: List[int] = field(default_factory=list)
 
 
-class CTestRunner:
-    """Compiles and runs C test code, measuring coverage"""
+class CppTestRunner:
+    """Compiles and runs C++ test code, measuring coverage with gcov."""
 
-    def __init__(self, compiler: str = "gcc"):
+    def __init__(self, compiler: str = "g++"):
         self.compiler = compiler
         self._check_tools()
 
     def _check_tools(self):
-        """Verify required tools are available"""
         try:
-            subprocess.run([self.compiler, "--version"],
-                         capture_output=True, check=True)
+            subprocess.run([self.compiler, "--version"], capture_output=True, check=True)
         except (subprocess.CalledProcessError, FileNotFoundError):
-            raise RuntimeError(f"Compiler '{self.compiler}' not found. Please install GCC.")
+            raise RuntimeError(f"Compiler '{self.compiler}' not found. Please install G++.")
 
-    def compile_and_run(self, source_code: str, test_code: str,
-                        source_filename: str = "source.c") -> TestResult:
-        """
-        Compile source with test code and run
-
-        Args:
-            source_code: The original C source being tested
-            test_code: The generated test code
-            source_filename: Name for the source file
-
-        Returns:
-            TestResult with pass/fail status and output
-        """
+    def compile_and_run(
+        self, source_code: str, test_code: str, source_filename: str = "source.cpp"
+    ) -> TestResult:
         import time
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmpdir = Path(tmpdir)
-
-            # Write source file (without main)
+        with tempfile.TemporaryDirectory() as tmpdir_name:
+            tmpdir = Path(tmpdir_name)
             source_file = tmpdir / source_filename
-            # Remove any existing main function from source
-            cleaned_source = self._remove_main(source_code)
-            source_file.write_text(cleaned_source)
+            source_file.write_text(self._remove_main(source_code), encoding="utf-8")
 
-            # Write test file
-            test_file = tmpdir / "test.c"
-            test_file.write_text(self._build_test_translation_unit(test_code))
+            test_file = tmpdir / "test.cpp"
+            test_file.write_text(self._build_test_translation_unit(test_code), encoding="utf-8")
 
-            # Compile - link both source and test files
             output_binary = tmpdir / "test_exe"
             compile_cmd = [
                 self.compiler,
+                "-std=c++17",
                 "-o", str(output_binary),
                 str(source_file),
                 str(test_file),
                 "-I", str(tmpdir),
-                "-lm"  # math library
-            ]
-
-            try:
-                compile_result = subprocess.run(
-                    compile_cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=30
-                )
-
-                if compile_result.returncode != 0:
-                    return TestResult(
-                        function_name="compilation",
-                        passed=False,
-                        error_message=f"Compilation failed:\n{compile_result.stderr}",
-                        execution_time=0,
-                        output=compile_result.stdout + compile_result.stderr
-                    )
-
-                # Run the test
-                start_time = time.time()
-                run_result = subprocess.run(
-                    [str(output_binary)],
-                    capture_output=True,
-                    text=True,
-                    timeout=30
-                )
-                execution_time = time.time() - start_time
-
-                passed = run_result.returncode == 0
-                return TestResult(
-                    function_name="test",
-                    passed=passed,
-                    error_message=None if passed else run_result.stderr,
-                    execution_time=execution_time,
-                    output=run_result.stdout + run_result.stderr
-                )
-
-            except subprocess.TimeoutExpired:
-                return TestResult(
-                    function_name="test",
-                    passed=False,
-                    error_message="Test execution timed out",
-                    execution_time=30,
-                    output=""
-                )
-            except Exception as e:
-                return TestResult(
-                    function_name="test",
-                    passed=False,
-                    error_message=str(e),
-                    execution_time=0,
-                    output=""
-                )
-
-    def run_with_coverage(self, source_code: str, test_code: str,
-                          source_filename: str = "source.c") -> Tuple[TestResult, CoverageResult]:
-        """
-        Compile and run with coverage instrumentation
-
-        Uses gcov for coverage measurement
-        """
-        import time
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmpdir = Path(tmpdir)
-
-            # Write source file
-            source_file = tmpdir / source_filename
-            cleaned_source = self._remove_main(source_code)
-            source_file.write_text(cleaned_source)
-
-            # Write test file
-            test_file = tmpdir / "test.c"
-            test_file.write_text(self._build_test_translation_unit(test_code))
-
-            # Compile with coverage flags - compile both files together
-            output_binary = tmpdir / "test_exe"
-            compile_cmd = [
-                self.compiler,
-                "-o", str(output_binary),
-                str(source_file),
-                str(test_file),
-                "-I", str(tmpdir),
-                "-fprofile-arcs",
-                "-ftest-coverage",
-                "-lm"
             ]
 
             try:
@@ -182,9 +76,82 @@ class CTestRunner:
                     capture_output=True,
                     text=True,
                     timeout=30,
-                    cwd=str(tmpdir)
+                )
+                if compile_result.returncode != 0:
+                    return TestResult(
+                        function_name="compilation",
+                        passed=False,
+                        error_message=f"Compilation failed:\n{compile_result.stderr}",
+                        execution_time=0,
+                        output=compile_result.stdout + compile_result.stderr,
+                    )
+
+                start_time = time.time()
+                run_result = subprocess.run(
+                    [str(output_binary)],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                execution_time = time.time() - start_time
+                passed = run_result.returncode == 0
+                return TestResult(
+                    function_name="test",
+                    passed=passed,
+                    error_message=None if passed else run_result.stderr,
+                    execution_time=execution_time,
+                    output=run_result.stdout + run_result.stderr,
+                )
+            except subprocess.TimeoutExpired:
+                return TestResult(
+                    function_name="test",
+                    passed=False,
+                    error_message="Test execution timed out",
+                    execution_time=30,
+                    output="",
+                )
+            except Exception as exc:
+                return TestResult(
+                    function_name="test",
+                    passed=False,
+                    error_message=str(exc),
+                    execution_time=0,
+                    output="",
                 )
 
+    def run_with_coverage(
+        self, source_code: str, test_code: str, source_filename: str = "source.cpp"
+    ) -> Tuple[TestResult, CoverageResult]:
+        import time
+
+        with tempfile.TemporaryDirectory() as tmpdir_name:
+            tmpdir = Path(tmpdir_name)
+            source_file = tmpdir / source_filename
+            source_file.write_text(self._remove_main(source_code), encoding="utf-8")
+
+            test_file = tmpdir / "test.cpp"
+            test_file.write_text(self._build_test_translation_unit(test_code), encoding="utf-8")
+
+            output_binary = tmpdir / "test_exe"
+            compile_cmd = [
+                self.compiler,
+                "-std=c++17",
+                "-o", str(output_binary),
+                str(source_file),
+                str(test_file),
+                "-I", str(tmpdir),
+                "-fprofile-arcs",
+                "-ftest-coverage",
+            ]
+
+            try:
+                compile_result = subprocess.run(
+                    compile_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                    cwd=str(tmpdir),
+                )
                 if compile_result.returncode != 0:
                     return (
                         TestResult(
@@ -192,19 +159,18 @@ class CTestRunner:
                             passed=False,
                             error_message=compile_result.stderr,
                             execution_time=0,
-                            output=compile_result.stdout + compile_result.stderr
+                            output=compile_result.stdout + compile_result.stderr,
                         ),
-                        CoverageResult(0, 0, 0, 0, 0, 0, [])
+                        CoverageResult(0, 0, 0, 0, 0, 0, []),
                     )
 
-                # Run the test
                 start_time = time.time()
                 run_result = subprocess.run(
                     [str(output_binary)],
                     capture_output=True,
                     text=True,
                     timeout=30,
-                    cwd=str(tmpdir)
+                    cwd=str(tmpdir),
                 )
                 execution_time = time.time() - start_time
 
@@ -214,14 +180,10 @@ class CTestRunner:
                     passed=passed,
                     error_message=None if passed else run_result.stderr,
                     execution_time=execution_time,
-                    output=run_result.stdout + run_result.stderr
+                    output=run_result.stdout + run_result.stderr,
                 )
-
-                # Run gcov to get coverage
                 coverage = self._parse_gcov_output(tmpdir, source_filename)
-
                 return test_result, coverage
-
             except subprocess.TimeoutExpired:
                 return (
                     TestResult(
@@ -229,60 +191,59 @@ class CTestRunner:
                         passed=False,
                         error_message="Test execution timed out",
                         execution_time=30,
-                        output=""
+                        output="",
                     ),
-                    CoverageResult(0, 0, 0, 0, 0, 0, [])
+                    CoverageResult(0, 0, 0, 0, 0, 0, []),
                 )
-            except Exception as e:
+            except Exception as exc:
                 return (
                     TestResult(
                         function_name="test",
                         passed=False,
-                        error_message=str(e),
+                        error_message=str(exc),
                         execution_time=0,
-                        output=""
+                        output="",
                     ),
-                    CoverageResult(0, 0, 0, 0, 0, 0, [])
+                    CoverageResult(0, 0, 0, 0, 0, 0, []),
                 )
 
     def _remove_main(self, source: str) -> str:
-        """Remove main function from source code"""
-        # Simple pattern matching - real implementation would use proper parsing
-        lines = source.split('\n')
+        lines = source.split("\n")
         result = []
         in_main = False
         brace_count = 0
 
         for line in lines:
-            if 'int main(' in line or 'void main(' in line:
+            if re.search(r"\b(?:int|auto|void)\s+main\s*\(", line):
                 in_main = True
                 brace_count = 0
 
             if in_main:
-                brace_count += line.count('{') - line.count('}')
-                if brace_count <= 0 and '{' in ''.join(result[-5:] if len(result) >= 5 else result):
+                brace_count += line.count("{") - line.count("}")
+                if brace_count <= 0 and "{" in line:
                     in_main = False
                 continue
 
             result.append(line)
 
-        return '\n'.join(result)
+        return "\n".join(result)
 
     def _build_test_translation_unit(self, test_code: str) -> str:
-        """Add the standard C test harness around a generated snippet."""
-        include_block = """#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
-#include <limits.h>
+        include_block = """#include <cassert>
+#include <climits>
+#include <cstddef>
+#include <cstdint>
+#include <cmath>
+#include <iostream>
+#include <string>
 
 """
-        has_main = re.search(r'\b(?:int|void)\s+main\s*\(', test_code) is not None
+        has_main = re.search(r"\b(?:int|void)\s+main\s*\(", test_code) is not None
         if has_main:
             return include_block + test_code
 
         test_functions = re.findall(
-            r'^\s*void\s+(test_[a-zA-Z_][a-zA-Z0-9_]*)\s*\(',
+            r"^\s*void\s+(test_[a-zA-Z_][a-zA-Z0-9_]*)\s*\(",
             test_code,
             re.MULTILINE,
         )
@@ -290,45 +251,41 @@ class CTestRunner:
             test_functions = ["test_placeholder"]
             test_code += (
                 "\nvoid test_placeholder() {\n"
-                '    printf("No generated test function found.\\n");\n'
+                '    std::cout << "No generated C++ test function found.\\n";\n'
                 "}\n"
             )
 
         test_calls = "\n    ".join(f"{name}();" for name in test_functions)
         main_code = (
             "\nint main() {\n"
-            f'    printf("Running {len(test_functions)} C test(s)...\\n\\n");\n'
+            f'    std::cout << "Running {len(test_functions)} C++ test(s)...\\n\\n";\n'
             f"    {test_calls}\n"
-            '    printf("\\nAll tests completed.\\n");\n'
+            '    std::cout << "\\nAll tests completed.\\n";\n'
             "    return 0;\n"
             "}\n"
         )
         return include_block + test_code + main_code
 
     def _parse_gcov_output(self, tmpdir: Path, source_filename: str) -> CoverageResult:
-        """Parse gcov output to extract coverage metrics"""
         try:
             source_stem = Path(source_filename).stem
             note_files = sorted(tmpdir.glob(f"*-{source_stem}.gcno"))
             if not note_files:
                 return CoverageResult(0, 0, 0, 0, 0, 0, [])
 
-            # Run gcov against the actual note file produced by MinGW/GCC.
-            gcov_result = subprocess.run(
+            subprocess.run(
                 ["gcov", note_files[0].name],
                 capture_output=True,
                 text=True,
-                cwd=str(tmpdir)
+                cwd=str(tmpdir),
             )
 
-            # Parse the .gcov file
             gcov_file = tmpdir / f"{Path(source_filename).name}.gcov"
             if not gcov_file.exists():
                 return CoverageResult(0, 0, 0, 0, 0, 0, [])
 
-            content = gcov_file.read_text()
-            lines = content.split('\n')
-
+            content = gcov_file.read_text(encoding="utf-8", errors="ignore")
+            lines = content.split("\n")
             lines_total = 0
             lines_covered = 0
             uncovered_lines = []
@@ -336,27 +293,25 @@ class CTestRunner:
             covered_lines = []
 
             for line in lines:
-                if ':' not in line:
+                if ":" not in line:
                     continue
-
-                parts = line.split(':')
+                parts = line.split(":")
                 if len(parts) < 2:
                     continue
 
                 count_str = parts[0].strip()
                 line_num_str = parts[1].strip()
-
                 try:
                     line_num = int(line_num_str)
                 except ValueError:
                     continue
 
-                if count_str == '-':
-                    continue  # Not executable line
+                if count_str == "-":
+                    continue
 
                 lines_total += 1
                 executable_lines.append(line_num)
-                if count_str == '#####':
+                if count_str == "#####":
                     uncovered_lines.append(line_num)
                 else:
                     try:
@@ -369,11 +324,7 @@ class CTestRunner:
                         pass
 
             line_coverage = (lines_covered / lines_total * 100) if lines_total > 0 else 0
-
-            # Branch coverage requires -b flag and additional parsing
-            # Simplified: estimate branch coverage as 80% of line coverage
             branch_coverage = line_coverage * 0.8
-
             return CoverageResult(
                 line_coverage=line_coverage,
                 branch_coverage=branch_coverage,
@@ -385,48 +336,5 @@ class CTestRunner:
                 executable_lines=executable_lines,
                 covered_lines=covered_lines,
             )
-
-        except Exception as e:
+        except Exception:
             return CoverageResult(0, 0, 0, 0, 0, 0, [])
-
-
-if __name__ == "__main__":
-    # Test the runner
-    source = '''
-int add(int a, int b) {
-    return a + b;
-}
-
-int multiply(int a, int b) {
-    if (a == 0 || b == 0) {
-        return 0;
-    }
-    return a * b;
-}
-'''
-
-    test = '''
-#include <stdio.h>
-#include <assert.h>
-
-int main() {
-    // Test add
-    assert(add(2, 3) == 5);
-    assert(add(-1, 1) == 0);
-    assert(add(0, 0) == 0);
-
-    // Test multiply
-    assert(multiply(2, 3) == 6);
-    assert(multiply(0, 5) == 0);
-    assert(multiply(-2, 3) == -6);
-
-    printf("All tests passed!\\n");
-    return 0;
-}
-'''
-
-    runner = CTestRunner()
-    result, coverage = runner.run_with_coverage(source, test)
-    print(f"Test passed: {result.passed}")
-    print(f"Line coverage: {coverage.line_coverage:.1f}%")
-    print(f"Output: {result.output}")

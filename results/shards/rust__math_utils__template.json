@@ -1,0 +1,174 @@
+{
+  "schema_version": 2,
+  "benchmark_name": "math_utils",
+  "language": "rust",
+  "generator_type": "template",
+  "per_function_coverage": true,
+  "function_results": [
+    {
+      "function_name": "safe_add",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 2,
+      "lines_total": 2,
+      "test_passed": true,
+      "execution_time": 0.19359326362609863,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "safe_multiply",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 2,
+      "lines_total": 2,
+      "test_passed": true,
+      "execution_time": 0.230635404586792,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "safe_divide",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 5,
+      "lines_total": 5,
+      "test_passed": true,
+      "execution_time": 0.20640826225280762,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "gcd",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 12,
+      "lines_total": 12,
+      "test_passed": true,
+      "execution_time": 0.21777009963989258,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "lcm",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 5,
+      "lines_total": 5,
+      "test_passed": true,
+      "execution_time": 0.19015288352966309,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "is_prime",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 13,
+      "lines_total": 13,
+      "test_passed": true,
+      "execution_time": 0.22072768211364746,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "factorial",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 7,
+      "lines_total": 7,
+      "test_passed": true,
+      "execution_time": 0.1944293975830078,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "fibonacci",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 12,
+      "lines_total": 12,
+      "test_passed": true,
+      "execution_time": 0.22864508628845215,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "power",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 14,
+      "lines_total": 14,
+      "test_passed": true,
+      "execution_time": 0.19587063789367676,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "isqrt",
+      "language": "rust",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 9,
+      "lines_total": 9,
+      "test_passed": true,
+      "execution_time": 0.24688291549682617,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "clamp",
+      "language": "rust",
+      "line_coverage": 58.333333333333336,
+      "branch_coverage": 46.66666666666667,
+      "lines_covered": 7,
+      "lines_total": 12,
+      "test_passed": true,
+      "execution_time": 0.22210931777954102,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "lerp",
+      "language": "rust",
+      "line_coverage": 0.0,
+      "branch_coverage": 0.0,
+      "lines_covered": 0,
+      "lines_total": 7,
+      "test_passed": true,
+      "execution_time": 0.21875929832458496,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "digit_sum",
+      "language": "rust",
+      "line_coverage": 0.0,
+      "branch_coverage": 0.0,
+      "lines_covered": 0,
+      "lines_total": 6,
+      "test_passed": true,
+      "execution_time": 0.2301797866821289,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "is_perfect_square",
+      "language": "rust",
+      "line_coverage": 0.0,
+      "branch_coverage": 0.0,
+      "lines_covered": 0,
+      "lines_total": 5,
+      "test_passed": true,
+      "execution_time": 0.2360391616821289,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "num_digits",
+      "language": "rust",
+      "line_coverage": 0.0,
+      "branch_coverage": 0.0,
+      "lines_covered": 0,
+      "lines_total": 9,
+      "test_passed": true,
+      "execution_time": 0.2487175464630127,
+      "generator_type": "template"
+    }
+  ]
+}

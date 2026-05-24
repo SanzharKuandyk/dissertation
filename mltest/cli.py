@@ -191,8 +191,8 @@ def present(report_path: str, graphs_dir: str, output: str, title: str):
 
 @main.command()
 @click.argument('source_file', type=click.Path(exists=True))
-@click.option('--language', '-l', type=click.Choice(['c', 'rust', 'auto']),
-              default='auto', help='Source language for generation (C and Rust only)')
+@click.option('--language', '-l', type=click.Choice(['c', 'cpp', 'rust', 'auto']),
+              default='auto', help='Source language for generation')
 @click.option('--provider', '-p', type=click.Choice(['openai', 'anthropic', 'template']),
               default='openai', help='LLM provider or template baseline')
 @click.option('--output', '-o', type=click.Path(), default=None,
@@ -206,7 +206,7 @@ def generate(source_file: str, language: str, provider: str,
     """
     source_path = Path(source_file)
 
-    language = _detect_language(source_path, language, {"c", "rust"})
+    language = _detect_language(source_path, language, {"c", "cpp", "rust"})
 
     # Auto-load API key from environment if not provided
     if not api_key:
@@ -263,8 +263,8 @@ def generate(source_file: str, language: str, provider: str,
 @main.command()
 @click.argument('source_file', type=click.Path(exists=True))
 @click.argument('test_file', type=click.Path(exists=True))
-@click.option('--language', '-l', type=click.Choice(['c', 'rust', 'auto']),
-              default='auto', help='Source language for execution (C and Rust only)')
+@click.option('--language', '-l', type=click.Choice(['c', 'cpp', 'rust', 'auto']),
+              default='auto', help='Source language for execution')
 @click.option('--coverage/--no-coverage', default=True, help='Measure coverage')
 def run(source_file: str, test_file: str, language: str, coverage: bool):
     """Run generated tests and measure coverage.
@@ -274,7 +274,7 @@ def run(source_file: str, test_file: str, language: str, coverage: bool):
     source_path = Path(source_file)
     test_path = Path(test_file)
 
-    language = _detect_language(source_path, language, {"c", "rust"})
+    language = _detect_language(source_path, language, {"c", "cpp", "rust"})
 
     console.print(Panel(f"[bold]Running tests for {source_path.name}[/bold]"))
 
@@ -292,9 +292,17 @@ def run(source_file: str, test_file: str, language: str, coverage: bool):
             from .runners.c_runner import CTestRunner
             runner = CTestRunner()
             if coverage:
-                result, cov = runner.run_with_coverage(source_code, test_code)
+                result, cov = runner.run_with_coverage(source_code, test_code, source_path.name)
             else:
-                result = runner.compile_and_run(source_code, test_code)
+                result = runner.compile_and_run(source_code, test_code, source_path.name)
+                cov = None
+        elif language == 'cpp':
+            from .runners.cpp_runner import CppTestRunner
+            runner = CppTestRunner()
+            if coverage:
+                result, cov = runner.run_with_coverage(source_code, test_code, source_path.name)
+            else:
+                result = runner.compile_and_run(source_code, test_code, source_path.name)
                 cov = None
         else:
             from .runners.rust_runner import RustTestRunner
@@ -315,7 +323,7 @@ def run(source_file: str, test_file: str, language: str, coverage: bool):
 @click.argument('benchmark_dir', type=click.Path(exists=True))
 @click.option('--output-dir', '-o', type=click.Path(), default='results',
               help='Output directory for results')
-@click.option('--provider', '-p', type=click.Choice(['openai', 'anthropic', 'all']),
+@click.option('--provider', '-p', type=click.Choice(['openai', 'anthropic', 'template', 'all']),
               default='openai', help='LLM provider to evaluate')
 def benchmark(benchmark_dir: str, output_dir: str, provider: str):
     """Run benchmarks on a directory of source files.
@@ -334,9 +342,14 @@ def benchmark(benchmark_dir: str, output_dir: str, provider: str):
 
     # Find all source files
     c_files = list(benchmark_path.glob('*.c'))
+    cpp_files = list(benchmark_path.glob('*.cpp'))
     rust_files = list(benchmark_path.glob('*.rs'))
 
-    all_files = [(f, 'c') for f in c_files] + [(f, 'rust') for f in rust_files]
+    all_files = (
+        [(f, 'c') for f in c_files]
+        + [(f, 'cpp') for f in cpp_files]
+        + [(f, 'rust') for f in rust_files]
+    )
 
     if not all_files:
         console.print("[yellow]No source files found in benchmark directory.[/yellow]")
@@ -344,7 +357,12 @@ def benchmark(benchmark_dir: str, output_dir: str, provider: str):
 
     console.print(f"Found {len(all_files)} source file(s)")
 
-    providers_to_test = ['openai', 'template'] if provider == 'all' else [provider, 'template']
+    if provider == 'all':
+        providers_to_test = ['openai', 'template']
+    elif provider == 'template':
+        providers_to_test = ['template']
+    else:
+        providers_to_test = [provider, 'template']
 
     for source_file, language in all_files:
         console.print(f"\nProcessing: {source_file.name}")
@@ -360,7 +378,11 @@ def benchmark(benchmark_dir: str, output_dir: str, provider: str):
                 if language == 'c':
                     from .runners.c_runner import CTestRunner
                     runner = CTestRunner()
-                    result, cov = runner.run_with_coverage(source_code, test.test_code)
+                    result, cov = runner.run_with_coverage(source_code, test.test_code, source_file.name)
+                elif language == 'cpp':
+                    from .runners.cpp_runner import CppTestRunner
+                    runner = CppTestRunner()
+                    result, cov = runner.run_with_coverage(source_code, test.test_code, source_file.name)
                 else:
                     from .runners.rust_runner import RustTestRunner
                     runner = RustTestRunner()
@@ -522,32 +544,34 @@ def _generate_test(func, language: str, provider: str, api_key: Optional[str]):
 
     template_gen = TemplateTestGenerator()
 
+    def _generate_with_template():
+        if language == 'c':
+            return template_gen.generate_c_tests(func)
+        if language == 'cpp':
+            return template_gen.generate_cpp_tests(func)
+        return template_gen.generate_rust_tests(func)
+
+    def _generate_with_llm(llm_gen):
+        if language == 'c':
+            return llm_gen.generate_c_tests(func)
+        if language == 'cpp':
+            return llm_gen.generate_cpp_tests(func)
+        return llm_gen.generate_rust_tests(func)
+
     # Explicit template request → no fallback needed
     if provider == 'template':
-        return (
-            template_gen.generate_c_tests(func)
-            if language == 'c'
-            else template_gen.generate_rust_tests(func)
-        )
+        return _generate_with_template()
 
     # LLM with fallback
     try:
         llm_gen = LLMTestGenerator(provider=provider, api_key=api_key)
-        return (
-            llm_gen.generate_c_tests(func)
-            if language == 'c'
-            else llm_gen.generate_rust_tests(func)
-        )
+        return _generate_with_llm(llm_gen)
     except Exception as e:
         console.print(
             f"[yellow]LLM generation failed for {func.name}, "
             f"falling back to template: {e}[/yellow]"
         )
-        return (
-            template_gen.generate_c_tests(func)
-            if language == 'c'
-            else template_gen.generate_rust_tests(func)
-        )
+        return _generate_with_template()
 
 
 def _combine_tests(tests, language: str, source_name: str) -> str:
@@ -575,6 +599,30 @@ int main() {{
     printf("Running {len(tests)} test suite(s)...\\n\\n");
     {test_calls}
     printf("\\nAll tests passed!\\n");
+    return 0;
+}}
+'''
+        return header + test_functions + '\n' + main_func
+    elif language == 'cpp':
+        header = f'''// Auto-generated tests for {source_name}
+// Generated by MLTest
+
+#include <cassert>
+#include <climits>
+#include <cstddef>
+#include <cstdint>
+#include <cmath>
+#include <iostream>
+#include <string>
+
+'''
+        test_functions = '\n\n'.join(t.test_code for t in tests)
+        test_calls = '\n    '.join(f'{t.test_name}();' for t in tests)
+        main_func = f'''
+int main() {{
+    std::cout << "Running {len(tests)} test suite(s)...\\n\\n";
+    {test_calls}
+    std::cout << "\\nAll tests completed.\\n";
     return 0;
 }}
 '''

@@ -1,0 +1,185 @@
+{
+  "schema_version": 2,
+  "benchmark_name": "data_structures",
+  "language": "cpp",
+  "generator_type": "llm",
+  "per_function_coverage": true,
+  "function_results": [
+    {
+      "function_name": "array_min",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 6,
+      "lines_total": 6,
+      "test_passed": true,
+      "execution_time": 0.09879136085510254,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "array_max",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 6,
+      "lines_total": 6,
+      "test_passed": true,
+      "execution_time": 0.06857156753540039,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "array_sum",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 6,
+      "lines_total": 6,
+      "test_passed": true,
+      "execution_time": 0.04713082313537598,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "array_avg",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 3,
+      "lines_total": 3,
+      "test_passed": true,
+      "execution_time": 0.06949234008789062,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "array_find",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 5,
+      "lines_total": 5,
+      "test_passed": true,
+      "execution_time": 0.0782308578491211,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "binary_search",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 9,
+      "lines_total": 9,
+      "test_passed": true,
+      "execution_time": 0.048769235610961914,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "array_count",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 6,
+      "lines_total": 6,
+      "test_passed": true,
+      "execution_time": 0.06780052185058594,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "is_sorted_asc",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 5,
+      "lines_total": 5,
+      "test_passed": true,
+      "execution_time": 0.06155109405517578,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "is_sorted_desc",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 5,
+      "lines_total": 5,
+      "test_passed": true,
+      "execution_time": 0.06280827522277832,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "array_reverse",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 8,
+      "lines_total": 8,
+      "test_passed": true,
+      "execution_time": 0.04121851921081543,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "rotate_left",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 7,
+      "lines_total": 7,
+      "test_passed": true,
+      "execution_time": 0.04620075225830078,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "count_unique",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 9,
+      "lines_total": 9,
+      "test_passed": true,
+      "execution_time": 0.06013655662536621,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "second_largest",
+      "language": "cpp",
+      "line_coverage": 0.0,
+      "branch_coverage": 0.0,
+      "lines_covered": 0,
+      "lines_total": 10,
+      "test_passed": false,
+      "execution_time": 0.24488520622253418,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "array_contains",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 2,
+      "lines_total": 2,
+      "test_passed": true,
+      "execution_time": 0.055730581283569336,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "array_range",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 3,
+      "lines_total": 3,
+      "test_passed": true,
+      "execution_time": 0.06185412406921387,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "dot_product",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 6,
+      "lines_total": 6,
+      "test_passed": true,
+      "execution_time": 0.05465292930603027,
+      "generator_type": "llm"
+    }
+  ]
+}

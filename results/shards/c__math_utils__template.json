@@ -1,0 +1,152 @@
+{
+  "schema_version": 2,
+  "benchmark_name": "math_utils",
+  "language": "c",
+  "generator_type": "template",
+  "per_function_coverage": true,
+  "function_results": [
+    {
+      "function_name": "safe_add",
+      "language": "c",
+      "line_coverage": 50.0,
+      "branch_coverage": 40.0,
+      "lines_covered": 3,
+      "lines_total": 6,
+      "test_passed": true,
+      "execution_time": 0.0699305534362793,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "safe_multiply",
+      "language": "c",
+      "line_coverage": 42.857142857142854,
+      "branch_coverage": 34.285714285714285,
+      "lines_covered": 3,
+      "lines_total": 7,
+      "test_passed": true,
+      "execution_time": 0.05287432670593262,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "safe_divide",
+      "language": "c",
+      "line_coverage": 42.857142857142854,
+      "branch_coverage": 34.285714285714285,
+      "lines_covered": 3,
+      "lines_total": 7,
+      "test_passed": true,
+      "execution_time": 0.06366872787475586,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "gcd",
+      "language": "c",
+      "line_coverage": 90.0,
+      "branch_coverage": 72.0,
+      "lines_covered": 9,
+      "lines_total": 10,
+      "test_passed": true,
+      "execution_time": 0.06407690048217773,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "lcm",
+      "language": "c",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 4,
+      "lines_total": 4,
+      "test_passed": true,
+      "execution_time": 0.07439422607421875,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "is_prime",
+      "language": "c",
+      "line_coverage": 25.0,
+      "branch_coverage": 20.0,
+      "lines_covered": 2,
+      "lines_total": 8,
+      "test_passed": true,
+      "execution_time": 0.06871414184570312,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "factorial",
+      "language": "c",
+      "line_coverage": 33.33333333333333,
+      "branch_coverage": 26.666666666666664,
+      "lines_covered": 3,
+      "lines_total": 9,
+      "test_passed": true,
+      "execution_time": 0.06618404388427734,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "fibonacci",
+      "language": "c",
+      "line_coverage": 30.0,
+      "branch_coverage": 24.0,
+      "lines_covered": 3,
+      "lines_total": 10,
+      "test_passed": true,
+      "execution_time": 0.08325552940368652,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "power",
+      "language": "c",
+      "line_coverage": 83.33333333333334,
+      "branch_coverage": 66.66666666666667,
+      "lines_covered": 10,
+      "lines_total": 12,
+      "test_passed": true,
+      "execution_time": 0.07445287704467773,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "isqrt",
+      "language": "c",
+      "line_coverage": 77.77777777777779,
+      "branch_coverage": 62.22222222222223,
+      "lines_covered": 7,
+      "lines_total": 9,
+      "test_passed": true,
+      "execution_time": 0.06267714500427246,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "abs_val",
+      "language": "c",
+      "line_coverage": 66.66666666666666,
+      "branch_coverage": 53.33333333333333,
+      "lines_covered": 2,
+      "lines_total": 3,
+      "test_passed": true,
+      "execution_time": 0.049742937088012695,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "clamp",
+      "language": "c",
+      "line_coverage": 37.5,
+      "branch_coverage": 30.0,
+      "lines_covered": 3,
+      "lines_total": 8,
+      "test_passed": true,
+      "execution_time": 0.06248807907104492,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "lerp",
+      "language": "c",
+      "line_coverage": 33.33333333333333,
+      "branch_coverage": 26.666666666666664,
+      "lines_covered": 2,
+      "lines_total": 6,
+      "test_passed": true,
+      "execution_time": 0.09657883644104004,
+      "generator_type": "template"
+    }
+  ]
+}

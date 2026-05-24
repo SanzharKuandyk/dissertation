@@ -1,0 +1,185 @@
+{
+  "schema_version": 2,
+  "benchmark_name": "data_structures",
+  "language": "c",
+  "generator_type": "template",
+  "per_function_coverage": true,
+  "function_results": [
+    {
+      "function_name": "array_min",
+      "language": "c",
+      "line_coverage": 0.0,
+      "branch_coverage": 0.0,
+      "lines_covered": 0,
+      "lines_total": 6,
+      "test_passed": true,
+      "execution_time": 0.05809211730957031,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "array_max",
+      "language": "c",
+      "line_coverage": 0.0,
+      "branch_coverage": 0.0,
+      "lines_covered": 0,
+      "lines_total": 6,
+      "test_passed": true,
+      "execution_time": 0.08420348167419434,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "array_sum",
+      "language": "c",
+      "line_coverage": 0.0,
+      "branch_coverage": 0.0,
+      "lines_covered": 0,
+      "lines_total": 6,
+      "test_passed": true,
+      "execution_time": 0.07025694847106934,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "array_avg",
+      "language": "c",
+      "line_coverage": 0.0,
+      "branch_coverage": 0.0,
+      "lines_covered": 0,
+      "lines_total": 4,
+      "test_passed": true,
+      "execution_time": 0.11348891258239746,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "array_find",
+      "language": "c",
+      "line_coverage": 40.0,
+      "branch_coverage": 32.0,
+      "lines_covered": 2,
+      "lines_total": 5,
+      "test_passed": true,
+      "execution_time": 0.07931280136108398,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "binary_search",
+      "language": "c",
+      "line_coverage": 9.090909090909092,
+      "branch_coverage": 7.272727272727273,
+      "lines_covered": 1,
+      "lines_total": 11,
+      "test_passed": true,
+      "execution_time": 0.08840537071228027,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "array_count",
+      "language": "c",
+      "line_coverage": 33.33333333333333,
+      "branch_coverage": 26.666666666666664,
+      "lines_covered": 2,
+      "lines_total": 6,
+      "test_passed": true,
+      "execution_time": 0.09680318832397461,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "is_sorted_asc",
+      "language": "c",
+      "line_coverage": 0.0,
+      "branch_coverage": 0.0,
+      "lines_covered": 0,
+      "lines_total": 5,
+      "test_passed": true,
+      "execution_time": 0.07198810577392578,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "is_sorted_desc",
+      "language": "c",
+      "line_coverage": 0.0,
+      "branch_coverage": 0.0,
+      "lines_covered": 0,
+      "lines_total": 5,
+      "test_passed": true,
+      "execution_time": 0.057997703552246094,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "array_reverse",
+      "language": "c",
+      "line_coverage": 0.0,
+      "branch_coverage": 0.0,
+      "lines_covered": 0,
+      "lines_total": 10,
+      "test_passed": true,
+      "execution_time": 0.04563093185424805,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "rotate_left",
+      "language": "c",
+      "line_coverage": 14.285714285714285,
+      "branch_coverage": 11.428571428571429,
+      "lines_covered": 1,
+      "lines_total": 7,
+      "test_passed": true,
+      "execution_time": 0.06439733505249023,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "remove_duplicates",
+      "language": "c",
+      "line_coverage": 0.0,
+      "branch_coverage": 0.0,
+      "lines_covered": 0,
+      "lines_total": 7,
+      "test_passed": true,
+      "execution_time": 0.055227041244506836,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "merge_sorted",
+      "language": "c",
+      "line_coverage": 11.76470588235294,
+      "branch_coverage": 9.411764705882353,
+      "lines_covered": 2,
+      "lines_total": 17,
+      "test_passed": true,
+      "execution_time": 0.07169198989868164,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "partition",
+      "language": "c",
+      "line_coverage": 0.0,
+      "branch_coverage": 0.0,
+      "lines_covered": 0,
+      "lines_total": 14,
+      "test_passed": true,
+      "execution_time": 0.06931710243225098,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "arrays_equal",
+      "language": "c",
+      "line_coverage": 28.57142857142857,
+      "branch_coverage": 22.857142857142858,
+      "lines_covered": 2,
+      "lines_total": 7,
+      "test_passed": true,
+      "execution_time": 0.06803607940673828,
+      "generator_type": "template"
+    },
+    {
+      "function_name": "second_largest",
+      "language": "c",
+      "line_coverage": 8.333333333333332,
+      "branch_coverage": 6.666666666666666,
+      "lines_covered": 1,
+      "lines_total": 12,
+      "test_passed": true,
+      "execution_time": 0.06490445137023926,
+      "generator_type": "template"
+    }
+  ]
+}

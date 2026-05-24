@@ -80,6 +80,11 @@ _VALID_RETURN_BASE = re.compile(
     r"string|std(?:::[a-zA-Z_][a-zA-Z0-9_<>, ]*)?)"
 )
 
+# Leading CV / storage / linkage qualifiers stripped before return-type validation.
+_RETURN_QUALIFIER_RE = re.compile(
+    r"^(?:(?:const|volatile|static|inline|constexpr|extern)\s+)+"
+)
+
 
 @dataclass
 class CppFunction:
@@ -224,12 +229,15 @@ class CppParser:
             return
         if "operator" in name:
             return
+        # Normalize: strip leading CV/storage qualifiers so `const char*` etc. validate
+        # against the base-type allowlist below.
+        normalized_rt = _RETURN_QUALIFIER_RE.sub("", return_type).strip()
         # Reject if return type looks invalid
-        rt_base = return_type.split()[0].lstrip("*&").lower()
+        rt_base = normalized_rt.split()[0].lstrip("*&").lower() if normalized_rt else ""
         if rt_base in {r.lower() for r in _INVALID_RETURN_TYPES}:
             return
         # Ensure return type starts with a known valid base
-        if not _VALID_RETURN_BASE.match(return_type.strip("*& \t")):
+        if not _VALID_RETURN_BASE.match(normalized_rt.strip("*& \t")):
             return
         # Skip destructors/constructors heuristic (name repeated in return type)
         if return_type.strip() == "" or name == rt_base:
@@ -242,8 +250,11 @@ class CppParser:
         brace_pos = match.end() - 1   # position of '{'
         body, body_end = self._extract_body(cleaned, brace_pos)
 
-        line_start = original_source[:match.start()].count("\n") + 1
-        line_end = original_source[:body_end].count("\n") + 1
+        # Line numbers must be derived from the cleaned source because match/body_end
+        # indexes come from that string after comment/class masking. Newlines are
+        # preserved, so the counts still map back to the original file correctly.
+        line_start = cleaned[:match.start()].count("\n") + 1
+        line_end = cleaned[:body_end].count("\n") + 1
 
         # Build is_const from the portion between ')' and '{'
         between = cleaned[match.end(0) - match.end(0): match.end(0)]

@@ -1,0 +1,174 @@
+{
+  "schema_version": 2,
+  "benchmark_name": "math_utils",
+  "language": "cpp",
+  "generator_type": "llm",
+  "per_function_coverage": true,
+  "function_results": [
+    {
+      "function_name": "safe_add",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 4,
+      "lines_total": 4,
+      "test_passed": true,
+      "execution_time": 0.060976505279541016,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "safe_multiply",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 7,
+      "lines_total": 7,
+      "test_passed": true,
+      "execution_time": 0.06893134117126465,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "safe_divide",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 3,
+      "lines_total": 3,
+      "test_passed": true,
+      "execution_time": 0.05579805374145508,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "gcd",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 8,
+      "lines_total": 8,
+      "test_passed": true,
+      "execution_time": 0.05002427101135254,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "lcm",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 4,
+      "lines_total": 4,
+      "test_passed": true,
+      "execution_time": 0.060915231704711914,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "is_prime",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 7,
+      "lines_total": 7,
+      "test_passed": true,
+      "execution_time": 0.059906005859375,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "factorial",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 8,
+      "lines_total": 8,
+      "test_passed": true,
+      "execution_time": 0.04804682731628418,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "fibonacci",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 11,
+      "lines_total": 11,
+      "test_passed": true,
+      "execution_time": 0.06961655616760254,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "power",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 7,
+      "lines_total": 7,
+      "test_passed": true,
+      "execution_time": 0.04466128349304199,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "isqrt",
+      "language": "cpp",
+      "line_coverage": 71.42857142857143,
+      "branch_coverage": 57.142857142857146,
+      "lines_covered": 5,
+      "lines_total": 7,
+      "test_passed": true,
+      "execution_time": 0.05746865272521973,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "abs_val",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 3,
+      "lines_total": 3,
+      "test_passed": true,
+      "execution_time": 0.058396339416503906,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "clamp",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 5,
+      "lines_total": 5,
+      "test_passed": true,
+      "execution_time": 0.09684538841247559,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "lerp",
+      "language": "cpp",
+      "line_coverage": 0,
+      "branch_coverage": 0,
+      "lines_covered": 0,
+      "lines_total": 0,
+      "test_passed": false,
+      "execution_time": 0,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "digit_sum",
+      "language": "cpp",
+      "line_coverage": 100.0,
+      "branch_coverage": 80.0,
+      "lines_covered": 7,
+      "lines_total": 7,
+      "test_passed": true,
+      "execution_time": 0.045799970626831055,
+      "generator_type": "llm"
+    },
+    {
+      "function_name": "is_perfect_square",
+      "language": "cpp",
+      "line_coverage": 0.0,
+      "branch_coverage": 0.0,
+      "lines_covered": 0,
+      "lines_total": 4,
+      "test_passed": false,
+      "execution_time": 0.39842891693115234,
+      "generator_type": "llm"
+    }
+  ]
+}

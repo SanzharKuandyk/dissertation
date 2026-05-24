@@ -3,12 +3,14 @@ LLM-Based Test Generator - Uses LLM APIs to generate unit tests
 """
 
 import os
+import re
 import json
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Any, Union
 from abc import ABC, abstractmethod
 
 from ..parsers.c_parser import CFunction
+from ..parsers.cpp_parser import CppFunction, CPP_KEYWORDS
 from ..parsers.rust_parser import RustFunction
 
 C_KEYWORDS = {
@@ -21,6 +23,10 @@ C_KEYWORDS = {
 
 def safe_c_name(name: str) -> str:
     return f"{name}_fn" if name in C_KEYWORDS else name
+
+
+def safe_cpp_name(name: str) -> str:
+    return f"{name}_fn" if name in CPP_KEYWORDS else name
 
 
 @dataclass
@@ -45,24 +51,36 @@ class LLMProvider(ABC):
 class OpenAIProvider(LLMProvider):
     """OpenAI API provider"""
 
-    def __init__(self, api_key: Optional[str] = None, model: str = "gpt-4o"):
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
-        self.model = model
+        self.model = model or os.getenv("MLTEST_OPENAI_MODEL", "gpt-5")
+
+    def _is_reasoning_model(self) -> bool:
+        # GPT-5 reasoning models reject custom temperature and use max_completion_tokens.
+        # The non-reasoning chat variant gpt-5-chat-latest behaves like gpt-4o.
+        name = self.model.lower()
+        return name.startswith("gpt-5") and not name.startswith("gpt-5-chat")
 
     def generate(self, prompt: str, system_prompt: str) -> str:
         try:
             from openai import OpenAI
             client = OpenAI(api_key=self.api_key)
 
-            response = client.chat.completions.create(
-                model=self.model,
-                messages=[
+            kwargs = {
+                "model": self.model,
+                "messages": [
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt}
+                    {"role": "user", "content": prompt},
                 ],
-                temperature=0.3,
-                max_tokens=2000
-            )
+            }
+            if self._is_reasoning_model():
+                # Reasoning tokens count against this budget; needs headroom.
+                kwargs["max_completion_tokens"] = 8000
+            else:
+                kwargs["temperature"] = 0.3
+                kwargs["max_tokens"] = 2000
+
+            response = client.chat.completions.create(**kwargs)
             return response.choices[0].message.content
         except ImportError:
             raise RuntimeError("OpenAI package not installed. Run: pip install openai")
@@ -140,6 +158,28 @@ Guidelines:
 
 Output format: Return ONLY the test code, no explanations."""
 
+    CPP_SYSTEM_PROMPT = """You are an expert C++ programmer and testing specialist.
+Your task is to generate compilable unit tests for a single free C++ function.
+
+CRITICAL RULES:
+- Return ONLY valid C++ code, no markdown, no explanations
+- DO NOT include headers (#include) - they will be added separately
+- DO NOT redefine the function being tested
+- DO NOT create a main() function
+- ONLY write: one test function body named exactly as requested
+- Use assert() for checks and std::cout for output
+- Use std::string, nullptr, std::size_t, and fully qualified std:: names
+- NEVER use reserved keywords as local variable names
+- Prefer local names like arg0_, arg1_, result_basic_, result_edge_
+
+ABSOLUTE PROHIBITIONS:
+- NEVER add class definitions, templates, namespaces, or macros
+- NEVER use `using namespace std;`
+- NEVER emit pseudocode or placeholder syntax
+- NEVER rename the function under test
+
+Output: VALID C++ CODE ONLY. No explanations."""
+
     def __init__(self, provider: str = "openai", api_key: Optional[str] = None):
         """
         Initialize the test generator
@@ -193,6 +233,25 @@ Output format: Return ONLY the test code, no explanations."""
             edge_cases_covered=self._identify_edge_cases(function, "rust")
         )
 
+    def generate_cpp_tests(self, function: CppFunction) -> GeneratedTest:
+        """Generate unit tests for a C++ free function."""
+        safe_name = safe_cpp_name(function.name)
+        test_name = f"test_cpp_{safe_name}"
+        prompt = self._build_cpp_prompt(function, test_name)
+
+        response = self.llm.generate(prompt, self.CPP_SYSTEM_PROMPT)
+        test_code = self._extract_code(response, "cpp")
+        test_code = self._validate_and_clean_cpp_code(test_code, function, test_name)
+
+        return GeneratedTest(
+            function_name=function.name,
+            test_code=test_code,
+            test_name=test_name,
+            language="cpp",
+            description=f"Generated tests for {function.raw_signature}",
+            edge_cases_covered=self._identify_edge_cases(function, "cpp"),
+        )
+
     def _build_c_prompt(self, function: CFunction, safe_name: str) -> str:
         """Build prompt for C test generation"""
         return f"""Generate unit tests for this C function:
@@ -242,6 +301,41 @@ Requirements:
 The tests should be runnable with: cargo test
 """
 
+    def _build_cpp_prompt(self, function: CppFunction, test_name: str) -> str:
+        """Build prompt for C++ test generation."""
+        params_str = ", ".join(f"{t} {n}".strip() for t, n in function.parameters)
+        ret_str = function.return_type.strip()
+        return f"""Generate unit tests for this C++ free function:
+
+Function: {function.name}
+Signature: {function.raw_signature}
+Return type: {ret_str}
+Parameters: {params_str if params_str else "None"}
+Body:
+{function.body}
+
+EXACT FORMAT TO FOLLOW:
+```cpp
+void {test_name}() {{
+    std::cout << "Testing {function.name}...\\n";
+    // declare safe local inputs such as arg0_, arg1_, result_basic_, result_edge_
+    // call the function under test directly by its real name
+    // add assert(...) checks where expectations are obvious
+    std::cout << "  Tests completed\\n";
+}}
+```
+
+RULES:
+- NO headers, NO main(), NO forward declaration
+- ONLY one function: {test_name}()
+- Use std::string for string parameters and nullptr for pointer-null cases
+- Use braces to isolate repeated local variable names if needed
+- Do not use reserved keywords as variable names
+- If exact expected values are unclear, prefer non-crash checks and obvious invariants
+
+Generate the code now:
+"""
+
     def _extract_code(self, response: str, language: str) -> str:
         """Extract code from LLM response, handling markdown code blocks"""
         # Check for markdown code blocks
@@ -284,99 +378,125 @@ The tests should be runnable with: cargo test
         return result
 
     def _validate_and_clean_c_code(self, code: str, func_name: str) -> str:
-        """Validate and clean generated C code"""
-        lines = code.split('\n')
-        cleaned_lines = []
+        """Extract the test_<func_name> definition and a single forward declaration
+        from LLM output, preserving body contents verbatim.
 
-        invalid_patterns = [
-            'overflow ', 'underflow ', 'multiplication ', 'division ',
-            'addition ', 'subtraction ', 'modulo ', 'result '
-        ]
+        Uses brace-matching rather than keyword filtering so legitimate
+        assert() / printf() / variable-init lines survive intact.
+        """
+        # Locate `[qualifiers] void test_<name>(...) {` allowing static/extern/inline.
+        header_re = re.compile(
+            r"(?:(?:static|extern|inline)\s+)*"
+            r"void\s+test_" + re.escape(func_name) + r"\s*\([^)]*\)\s*\{",
+            re.MULTILINE,
+        )
+        m = header_re.search(code)
+        if not m:
+            return self._placeholder_c_test(func_name)
 
-        found_test_func = False
-        in_test_func = False
-        brace_count = 0
+        # Brace-balance from the '{' that ends the header.
+        brace_open = m.end() - 1
+        depth = 0
+        end = None
+        for i in range(brace_open, len(code)):
+            ch = code[i]
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    end = i + 1
+                    break
+        if end is None:
+            return self._placeholder_c_test(func_name)
 
-        for line in lines:
+        test_def = code[m.start():end]
+
+        # Pick the first plausible forward declaration that mentions func_name,
+        # appears before the test func, and is not itself a test definition.
+        forward_decl = None
+        for line in code[: m.start()].splitlines():
             stripped = line.strip()
+            if (
+                stripped.endswith(";")
+                and func_name in stripped
+                and "test_" not in stripped
+                and not stripped.startswith("//")
+                and not stripped.startswith("/*")
+            ):
+                forward_decl = line
+                break
 
-            # Skip lines with invalid pseudo-code patterns
-            is_invalid = False
-            if not stripped.startswith('//') and not stripped.startswith('/*'):
-                for pattern in invalid_patterns:
-                    if stripped.startswith(pattern) and '(' in stripped:
-                        is_invalid = True
-                        break
+        parts = []
+        if forward_decl:
+            parts.append("// Forward declaration")
+            parts.append(forward_decl)
+            parts.append("")
+        parts.append(test_def)
+        return "\n".join(parts) + "\n"
 
-            # Track if we're inside the correct test function
-            if f'void test_{func_name}' in line:
-                if found_test_func:
-                    # Already found one test function, skip duplicates
-                    continue
-                found_test_func = True
-                in_test_func = True
-                brace_count = 0
+    def _placeholder_c_test(self, func_name: str) -> str:
+        return (
+            f"// Forward declaration\n"
+            f"extern int {func_name}();\n"
+            f"\n"
+            f"void test_{func_name}() {{\n"
+            f'    printf("Testing {func_name}...\\n");\n'
+            f"    // LLM generated invalid code, using placeholder\n"
+            f'    printf("  Test placeholder\\n");\n'
+            f"}}\n"
+        )
 
-            # Track braces to know when test function ends
-            if in_test_func:
-                brace_count += line.count('{') - line.count('}')
-                if not is_invalid:
-                    cleaned_lines.append(line)
-                if brace_count <= 0 and found_test_func:
-                    in_test_func = False
-            elif not in_test_func and not is_invalid:
-                # Only add lines outside test functions if they're valid
-                # This includes forward declarations
-                if stripped and (stripped.startswith('//') or
-                               stripped.startswith('/*') or
-                               stripped.endswith(';')):
-                    cleaned_lines.append(line)
+    def _validate_and_clean_cpp_code(
+        self, code: str, function: CppFunction, test_name: str
+    ) -> str:
+        """Extract a single C++ test function and prepend a canonical declaration."""
+        header_re = re.compile(
+            r"(?:(?:static|inline)\s+)*void\s+"
+            + re.escape(test_name)
+            + r"\s*\([^)]*\)\s*\{",
+            re.MULTILINE,
+        )
+        match = header_re.search(code)
+        if not match:
+            return TemplateTestGenerator().generate_cpp_tests(function).test_code
 
-        cleaned = '\n'.join(cleaned_lines)
+        brace_open = match.end() - 1
+        depth = 0
+        end = None
+        for index in range(brace_open, len(code)):
+            ch = code[index]
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    end = index + 1
+                    break
 
-        # Ensure we have the test function
-        if f'void test_{func_name}' not in cleaned:
-            # If validation failed completely, return a minimal valid test
-            return f'''// Forward declaration
-extern int {func_name}();
+        if end is None:
+            return TemplateTestGenerator().generate_cpp_tests(function).test_code
 
-void test_{func_name}() {{
-    printf("Testing {func_name}...\\n");
-    // LLM generated invalid code, using placeholder
-    printf("  Test placeholder\\n");
-}}
-'''
+        test_def = code[match.start():end].strip()
+        return (
+            f"// Forward declaration\n{function.raw_signature};\n\n"
+            f"{test_def}\n"
+        )
 
-        # Ensure we have only ONE forward declaration for this function
-        # Remove duplicate or wrong declarations
-        final_lines = []
-        seen_declarations = set()
-
-        for line in cleaned.split('\n'):
-            stripped = line.strip()
-            # Check if it's a forward declaration (ends with ;, not in function)
-            if stripped.endswith(');') and not 'void test_' in stripped:
-                if func_name in stripped:
-                    # This is a declaration for our function
-                    if func_name not in seen_declarations:
-                        seen_declarations.add(func_name)
-                        final_lines.append(line)
-                # Skip declarations for other functions
-            else:
-                final_lines.append(line)
-
-        return '\n'.join(final_lines)
-
-    def _identify_edge_cases(self, function: Union[CFunction, RustFunction], language: str) -> List[str]:
+    def _identify_edge_cases(
+        self, function: Union[CFunction, CppFunction, RustFunction], language: str
+    ) -> List[str]:
         """Identify potential edge cases based on function signature"""
         edge_cases = []
 
-        if language == "c":
+        if language in {"c", "cpp"}:
             for param_type, param_name in function.parameters:
                 if '*' in param_type:
                     edge_cases.append(f"NULL {param_name}")
                 if 'int' in param_type:
                     edge_cases.extend([f"{param_name}=0", f"{param_name}=INT_MAX", f"{param_name}=INT_MIN"])
+                if 'std::string' in param_type or 'string' in param_type:
+                    edge_cases.append(f"empty string for {param_name}")
                 if 'char*' in param_type or 'char *' in param_type:
                     edge_cases.append(f"empty string for {param_name}")
         else:  # Rust
@@ -506,116 +626,118 @@ mod tests {{
         for idx, (ptype, _pname) in enumerate(params):
             var = f"arg{idx}_"          # safe name: never a keyword
             pt = ptype.strip()
+            basic_var = f"{var}basic"
+            edge_var = f"{var}edge"
 
             if "std::string" in pt or "string" in pt:
-                arg_decls_basic.append(f'    std::string {var} = "hello";')
-                arg_decls_edge.append(f'    std::string {var} = "";')
-                arg_vars.append(var)
+                arg_decls_basic.append(f'        std::string {basic_var} = "hello";')
+                arg_decls_edge.append(f'        std::string {edge_var} = "";')
+                arg_vars.append((basic_var, edge_var))
             elif "*" in pt:
                 # Pointer param — use nullptr for the null-check call,
                 # real array for the normal call
-                arg_decls_basic.append(f'    int buf{idx}_[] = {{1, 2, 3, 4, 5}};')
-                arg_decls_basic.append(f'    int* {var} = buf{idx}_;')
-                arg_decls_edge.append(f'    int* {var}_null = nullptr;')
-                arg_vars.append(var)
-                ptr_checks.append((idx, var))
+                pointee = "const int*" if "const" in pt else "int*"
+                arg_decls_basic.append(f'        int buf{idx}_[] = {{1, 2, 3, 4, 5}};')
+                arg_decls_basic.append(f'        {pointee} {basic_var} = buf{idx}_;')
+                arg_decls_edge.append(f'        {pointee} {edge_var} = nullptr;')
+                arg_vars.append((basic_var, edge_var))
+                ptr_checks.append((idx, edge_var))
             elif "bool" in pt:
-                arg_decls_basic.append(f'    bool {var} = true;')
-                arg_decls_edge.append(f'    bool {var} = false;')
-                arg_vars.append(var)
+                arg_decls_basic.append(f'        bool {basic_var} = true;')
+                arg_decls_edge.append(f'        bool {edge_var} = false;')
+                arg_vars.append((basic_var, edge_var))
             elif "double" in pt or "float" in pt:
-                arg_decls_basic.append(f'    double {var} = 1.0;')
-                arg_decls_edge.append(f'    double {var} = 0.0;')
-                arg_vars.append(var)
+                arg_decls_basic.append(f'        double {basic_var} = 1.0;')
+                arg_decls_edge.append(f'        double {edge_var} = 0.0;')
+                arg_vars.append((basic_var, edge_var))
             elif "long long" in pt or "int64" in pt:
-                arg_decls_basic.append(f'    long long {var} = 1LL;')
-                arg_decls_edge.append(f'    long long {var} = 0LL;')
-                arg_vars.append(var)
+                arg_decls_basic.append(f'        long long {basic_var} = 1LL;')
+                arg_decls_edge.append(f'        long long {edge_var} = 0LL;')
+                arg_vars.append((basic_var, edge_var))
             elif "long" in pt:
-                arg_decls_basic.append(f'    long {var} = 1L;')
-                arg_decls_edge.append(f'    long {var} = 0L;')
-                arg_vars.append(var)
+                arg_decls_basic.append(f'        long {basic_var} = 1L;')
+                arg_decls_edge.append(f'        long {edge_var} = 0L;')
+                arg_vars.append((basic_var, edge_var))
             elif "char" in pt and "*" not in pt:
-                arg_decls_basic.append(f'    char {var} = \'a\';')
-                arg_decls_edge.append(f'    char {var} = \'\\0\';')
-                arg_vars.append(var)
+                arg_decls_basic.append(f'        char {basic_var} = \'a\';')
+                arg_decls_edge.append(f'        char {edge_var} = \'\\0\';')
+                arg_vars.append((basic_var, edge_var))
             elif "size_t" in pt or "uint" in pt:
-                arg_decls_basic.append(f'    std::size_t {var} = 3;')
-                arg_decls_edge.append(f'    std::size_t {var} = 0;')
-                arg_vars.append(var)
+                arg_decls_basic.append(f'        std::size_t {basic_var} = 3;')
+                arg_decls_edge.append(f'        std::size_t {edge_var} = 0;')
+                arg_vars.append((basic_var, edge_var))
             else:
                 # Default: treat as int
-                arg_decls_basic.append(f'    int {var} = 1;')
-                arg_decls_edge.append(f'    int {var} = 0;')
-                arg_vars.append(var)
+                arg_decls_basic.append(f'        int {basic_var} = 1;')
+                arg_decls_edge.append(f'        int {edge_var} = 0;')
+                arg_vars.append((basic_var, edge_var))
 
-        args_str = ", ".join(arg_vars)
+        basic_args = ", ".join(b for b, _ in arg_vars)
+        edge_args = ", ".join(e for _, e in arg_vars)
 
         # Return type determines how we capture / assert the result
         ret = function.return_type.strip()
         if ret == "void":
-            call_basic = f"    {func_name}({args_str});"
-            call_edge  = f"    {func_name}({args_str});"
+            call_basic = f"        {func_name}({basic_args});"
+            call_edge  = f"        {func_name}({edge_args});"
             assert_basic = ""
             assert_edge  = ""
         elif "bool" in ret:
-            call_basic = f"    bool result_basic_ = {func_name}({args_str});"
-            call_edge  = f"    bool result_edge_ = {func_name}({args_str});"
-            assert_basic = "    // result_basic_ is true or false — both are valid"
-            assert_edge  = "    // result_edge_ is true or false — both are valid"
+            call_basic = f"        bool result_basic_ = {func_name}({basic_args});"
+            call_edge  = f"        bool result_edge_ = {func_name}({edge_args});"
+            assert_basic = "        // result_basic_ is true or false — both are valid"
+            assert_edge  = "        // result_edge_ is true or false — both are valid"
         elif "std::string" in ret or "string" in ret:
-            call_basic = f"    std::string result_basic_ = {func_name}({args_str});"
-            call_edge  = f"    std::string result_edge_ = {func_name}({args_str});"
-            assert_basic = "    assert(!result_basic_.empty() || result_basic_.empty()); // non-crash check"
-            assert_edge  = "    assert(!result_edge_.empty() || result_edge_.empty());"
+            call_basic = f"        std::string result_basic_ = {func_name}({basic_args});"
+            call_edge  = f"        std::string result_edge_ = {func_name}({edge_args});"
+            assert_basic = "        assert(!result_basic_.empty() || result_basic_.empty()); // non-crash check"
+            assert_edge  = "        assert(!result_edge_.empty() || result_edge_.empty());"
         elif "*" in ret:
-            call_basic = f"    auto* result_basic_ = {func_name}({args_str});"
-            call_edge  = f"    auto* result_edge_ = {func_name}({args_str});"
-            assert_basic = "    // pointer result — nullptr is valid"
+            call_basic = f"        auto* result_basic_ = {func_name}({basic_args});"
+            call_edge  = f"        auto* result_edge_ = {func_name}({edge_args});"
+            assert_basic = "        // pointer result — nullptr is valid"
             assert_edge  = ""
         else:
             # Numeric return
-            call_basic = f"    auto result_basic_ = {func_name}({args_str});"
-            call_edge  = f"    auto result_edge_ = {func_name}({args_str});"
-            assert_basic = "    (void)result_basic_; // suppress unused-variable warning"
-            assert_edge  = "    (void)result_edge_;"
+            call_basic = f"        auto result_basic_ = {func_name}({basic_args});"
+            call_edge  = f"        auto result_edge_ = {func_name}({edge_args});"
+            assert_basic = "        (void)result_basic_; // suppress unused-variable warning"
+            assert_edge  = "        (void)result_edge_;"
 
         # Nullptr calls for pointer params
         null_calls = []
-        for _idx, pvar in ptr_checks:
+        for idx, pvar in ptr_checks:
             null_args = ", ".join(
-                f"{pvar}_null" if v == pvar else v
-                for v in arg_vars
+                pvar if pos == idx else edge_name
+                for pos, (_basic_name, edge_name) in enumerate(arg_vars)
             )
-            null_calls.append(f"    {func_name}({null_args}); // nullptr safety check")
+            null_calls.append(f"        {func_name}({null_args}); // nullptr safety check")
 
         basic_block  = "\n".join(arg_decls_basic)
         edge_block   = "\n".join(arg_decls_edge)
         null_block   = "\n".join(null_calls)
 
-        test_code = f"""// Template-generated C++ tests for: {function.raw_signature}
-// Generated by MLTest TemplateTestGenerator
-
-#include <cassert>
-#include <iostream>
-#include <string>
-#include <cstddef>
-#include <climits>
+        test_code = f"""// Forward declaration
+{function.raw_signature};
 
 void {test_fn_name}() {{
     std::cout << "Testing {func_name}...\\n";
 
-    // --- Basic call ---
+    {{
+        // --- Basic call ---
 {basic_block}
 {call_basic}
 {assert_basic}
+    }}
 
-    // --- Edge / zero call ---
+    {{
+        // --- Edge / zero call ---
 {edge_block}
 {call_edge}
 {assert_edge}
-{"" if not null_block else "    // --- Null-pointer safety ---"}
+{"" if not null_block else "        // --- Null-pointer safety ---"}
 {null_block}
+    }}
 
     std::cout << "  {func_name}: basic tests passed\\n";
 }}

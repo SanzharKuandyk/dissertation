@@ -7,8 +7,11 @@ import os
 import sys
 import json
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import asdict
 from pathlib import Path
 from datetime import datetime
+from typing import Optional, Tuple
 
 # Add project to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -18,6 +21,7 @@ from mltest.parsers.rust_parser import RustParser
 from mltest.parsers.cpp_parser import CppParser
 from mltest.generators.llm_generator import LLMTestGenerator, TemplateTestGenerator
 from mltest.runners.c_runner import CTestRunner
+from mltest.runners.cpp_runner import CppTestRunner
 from mltest.runners.rust_runner import RustTestRunner
 from mltest.coverage.analyzer import CoverageAnalyzer, FunctionCoverage
 from mltest.visualization import (
@@ -31,170 +35,295 @@ from mltest.visualization import (
 from mltest.ml import MLStrategySelector
 
 
-def run_full_evaluation(use_llm: bool = True, llm_provider: str = "openai"):
-    """Run complete evaluation on all benchmarks"""
+def _parse_testable_functions(source_code: str, language: str):
+    if language == "c":
+        parser = CParser()
+        parser.parse_source(source_code)
+        return parser.get_testable_functions()
+    if language == "cpp":
+        parser = CppParser()
+        parser.parse_source(source_code)
+        return parser.get_testable_functions()
+    if language == "rust":
+        parser = RustParser()
+        parser.parse_source(source_code)
+        return parser.get_testable_functions()
+    raise ValueError(f"Unsupported language: {language}")
+
+
+def _build_runner(language: str):
+    try:
+        if language == "c":
+            return CTestRunner()
+        if language == "cpp":
+            return CppTestRunner()
+        if language == "rust":
+            return RustTestRunner()
+    except Exception:
+        return None
+    return None
+
+
+def _build_generator(gen_type: str, use_llm: bool, llm_provider: str):
+    if gen_type == "template":
+        return TemplateTestGenerator()
+    if not use_llm:
+        return None
+    try:
+        return LLMTestGenerator(provider=llm_provider)
+    except Exception:
+        return None
+
+
+def _generate_test_for_language(generator, func, language: str):
+    if language == "c":
+        return generator.generate_c_tests(func)
+    if language == "cpp":
+        return generator.generate_cpp_tests(func)
+    if language == "rust":
+        return generator.generate_rust_tests(func)
+    raise ValueError(f"Unsupported language: {language}")
+
+
+def _slice_coverage(cov, line_start: int, line_end: int) -> Tuple[float, float, int, int]:
+    executable_lines = [
+        line for line in getattr(cov, "executable_lines", [])
+        if line_start <= line <= line_end
+    ]
+    covered_lines = [
+        line for line in getattr(cov, "covered_lines", [])
+        if line_start <= line <= line_end
+    ]
+    if executable_lines:
+        lines_total = len(executable_lines)
+        lines_covered = len(covered_lines)
+        line_coverage = (lines_covered / lines_total * 100.0) if lines_total else 0.0
+        branch_coverage = line_coverage * 0.8
+        return line_coverage, branch_coverage, lines_covered, lines_total
+    return cov.line_coverage, cov.branch_coverage, cov.lines_covered, cov.lines_total
+
+
+def _is_quota_error(exc: Exception) -> bool:
+    text = str(exc).lower()
+    return (
+        "insufficient_quota" in text
+        or "exceeded your current quota" in text
+        or "error code: 429" in text
+    )
+
+
+def _failed_real_result(func, language: str, gen_type: str) -> FunctionCoverage:
+    return FunctionCoverage(
+        function_name=func.name,
+        language=language,
+        line_coverage=0.0,
+        branch_coverage=0.0,
+        lines_covered=0,
+        lines_total=max(1, int((getattr(func, "line_end", 0) or 0) - (getattr(func, "line_start", 0) or 0) + 1)),
+        test_passed=False,
+        execution_time=0.0,
+        generator_type=gen_type,
+    )
+
+
+def _write_json_atomic(path: Path, payload: dict):
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp_path, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2)
+    tmp_path.replace(path)
+
+
+def _load_shard(path: Path, benchmark_name: str, language: str, generator_type: str) -> dict:
+    if path.exists():
+        with open(path, encoding="utf-8") as handle:
+            return json.load(handle)
+    return {
+        "schema_version": 2,
+        "benchmark_name": benchmark_name,
+        "language": language,
+        "generator_type": generator_type,
+        "per_function_coverage": True,
+        "function_results": [],
+    }
+
+
+def _process_benchmark_shard(
+    source_path: Path,
+    language: str,
+    gen_type: str,
+    use_llm: bool,
+    llm_provider: str,
+    shards_dir: Path,
+) -> dict:
+    benchmark_name = source_path.stem
+    shard_path = shards_dir / f"{language}__{benchmark_name}__{gen_type}.json"
+    shard = _load_shard(shard_path, benchmark_name, language, gen_type)
+    completed = {item["function_name"] for item in shard.get("function_results", [])}
+
+    source_code = source_path.read_text(encoding="utf-8", errors="ignore")
+    functions = _parse_testable_functions(source_code, language)
+    runner = _build_runner(language)
+    generator = _build_generator(gen_type, use_llm, llm_provider)
+    resumed_count = len(completed)
+    new_count = 0
+
+    for func in functions:
+        if func.name in completed:
+            continue
+
+        try:
+            if generator is None or runner is None:
+                func_cov = _simulate_result(func.name, language, gen_type)
+            else:
+                test = _generate_test_for_language(generator, func, language)
+                if language in {"c", "cpp"}:
+                    result, cov = runner.run_with_coverage(source_code, test.test_code, source_path.name)
+                else:
+                    result, cov = runner.run_with_coverage(source_code, test.test_code, source_path.stem)
+
+                line_cov, branch_cov, lines_covered, lines_total = _slice_coverage(
+                    cov,
+                    int(getattr(func, "line_start", 0) or 0),
+                    int(getattr(func, "line_end", 0) or 0),
+                )
+                func_cov = FunctionCoverage(
+                    function_name=func.name,
+                    language=language,
+                    line_coverage=line_cov,
+                    branch_coverage=branch_cov,
+                    lines_covered=lines_covered,
+                    lines_total=lines_total,
+                    test_passed=result.passed,
+                    execution_time=result.execution_time,
+                    generator_type=gen_type,
+                )
+        except Exception as exc:
+            print(f"    Error with {gen_type} for {language}:{func.name}: {exc}")
+            if gen_type == "llm" and _is_quota_error(exc):
+                print(
+                    f"    Quota/API limit reached for {language}:{benchmark_name}. "
+                    "Stopping shard early so it can resume later without fake data."
+                )
+                break
+            func_cov = _failed_real_result(func, language, gen_type)
+
+        shard["function_results"].append(asdict(func_cov))
+        completed.add(func.name)
+        new_count += 1
+        _write_json_atomic(shard_path, shard)
+
+    return {
+        "benchmark_name": benchmark_name,
+        "language": language,
+        "generator_type": gen_type,
+        "total_functions": len(functions),
+        "resumed_count": resumed_count,
+        "new_count": new_count,
+        "shard_path": str(shard_path),
+    }
+
+
+def _aggregate_shards(results_dir: Path, shards_dir: Path) -> Tuple[CoverageAnalyzer, Path]:
+    analyzer = CoverageAnalyzer(results_dir)
+    for shard_path in sorted(shards_dir.glob("*.json")):
+        with open(shard_path, encoding="utf-8") as handle:
+            shard = json.load(handle)
+        for item in shard.get("function_results", []):
+            analyzer.add_function_result(
+                shard["benchmark_name"],
+                shard["language"],
+                FunctionCoverage(**item),
+            )
+    results_file = analyzer.save_results("results.json")
+    return analyzer, results_file
+
+
+def run_full_evaluation(
+    use_llm: bool = True,
+    llm_provider: str = "openai",
+    parallel_workers: Optional[int] = None,
+    resume: bool = True,
+):
+    """Run complete evaluation on all benchmarks with per-function coverage and shard checkpoints."""
     print("=" * 60)
     print("ML-DRIVEN TEST GENERATION - EVALUATION")
     print("=" * 60)
     print(f"Started: {datetime.now().isoformat()}")
     print()
 
-    # Setup paths
     base_dir = Path(__file__).parent
     benchmarks_dir = base_dir / "benchmarks"
     results_dir = base_dir / "results"
     graphs_dir = base_dir / "graphs"
+    shards_dir = results_dir / "shards"
 
     results_dir.mkdir(exist_ok=True)
     graphs_dir.mkdir(exist_ok=True)
+    shards_dir.mkdir(exist_ok=True)
 
-    # Initialize analyzer
-    analyzer = CoverageAnalyzer(results_dir)
-
-    # Get benchmark files
-    c_files = list((benchmarks_dir / "c").glob("*.c"))
-    rust_files = list((benchmarks_dir / "rust").glob("*.rs"))
+    c_files = sorted((benchmarks_dir / "c").glob("*.c"))
+    cpp_files = sorted((benchmarks_dir / "cpp").glob("*.cpp"))
+    rust_files = sorted((benchmarks_dir / "rust").glob("*.rs"))
 
     print(f"Found {len(c_files)} C benchmark files")
+    print(f"Found {len(cpp_files)} C++ benchmark files")
     print(f"Found {len(rust_files)} Rust benchmark files")
     print()
 
-    # Initialize generators
     if use_llm:
         try:
-            llm_generator = LLMTestGenerator(provider=llm_provider)
+            LLMTestGenerator(provider=llm_provider)
             print(f"Using LLM provider: {llm_provider}")
-        except Exception as e:
-            print(f"LLM not available: {e}")
-            print("Falling back to simulated results")
+        except Exception as exc:
+            print(f"LLM not available: {exc}")
+            print("Falling back to simulated LLM results")
             use_llm = False
 
-    template_generator = TemplateTestGenerator()
+    if not resume:
+        for shard_path in shards_dir.glob("*.json"):
+            shard_path.unlink()
 
-    # Initialize runners
-    try:
-        c_runner = CTestRunner()
-        print("C compiler available: Yes")
-    except:
-        c_runner = None
-        print("C compiler available: No (will simulate)")
+    tasks = []
+    for language, source_files in [("c", c_files), ("cpp", cpp_files), ("rust", rust_files)]:
+        for source_path in source_files:
+            for gen_type in ["llm", "template"]:
+                tasks.append((source_path, language, gen_type))
 
-    try:
-        rust_runner = RustTestRunner()
-        print("Rust compiler available: Yes")
-    except:
-        rust_runner = None
-        print("Rust compiler available: No (will simulate)")
-
-    print()
+    workers = parallel_workers or min(max(len(tasks), 1), max(os.cpu_count() or 1, 4), 6)
+    print(f"Parallel workers: {workers}")
+    print(f"Resume mode: {'on' if resume else 'off'}")
     print("-" * 40)
 
-    # Process C benchmarks
-    for c_file in c_files:
-        print(f"\nProcessing: {c_file.name}")
-        source_code = c_file.read_text()
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = [
+            executor.submit(
+                _process_benchmark_shard,
+                source_path,
+                language,
+                gen_type,
+                use_llm,
+                llm_provider,
+                shards_dir,
+            )
+            for source_path, language, gen_type in tasks
+        ]
+        for future in as_completed(futures):
+            summary = future.result()
+            print(
+                f"[{summary['generator_type']}] {summary['language']}:{summary['benchmark_name']} "
+                f"resumed={summary['resumed_count']} new={summary['new_count']} total={summary['total_functions']}"
+            )
 
-        parser = CParser()
-        functions = parser.parse_source(source_code)
-        testable = parser.get_testable_functions()
-
-        print(f"  Found {len(testable)} testable functions")
-
-        for func in testable:
-            # Run with both generators
-            for gen_type, generator in [("llm", llm_generator if use_llm else None),
-                                        ("template", template_generator)]:
-                if generator is None:
-                    # Simulate LLM results
-                    func_cov = _simulate_llm_result(func.name, "c")
-                else:
-                    try:
-                        if gen_type == "llm":
-                            test = generator.generate_c_tests(func)
-                        else:
-                            test = generator.generate_c_tests(func)
-
-                        if c_runner:
-                            result, cov = c_runner.run_with_coverage(source_code, test.test_code)
-                            func_cov = FunctionCoverage(
-                                function_name=func.name,
-                                language="c",
-                                line_coverage=cov.line_coverage,
-                                branch_coverage=cov.branch_coverage,
-                                lines_covered=cov.lines_covered,
-                                lines_total=cov.lines_total,
-                                test_passed=result.passed,
-                                execution_time=result.execution_time,
-                                generator_type="llm" if gen_type == "llm" else "template"
-                            )
-                        else:
-                            func_cov = _simulate_result(func.name, "c", gen_type)
-                    except Exception as e:
-                        print(f"    Error with {gen_type} for {func.name}: {e}")
-                        func_cov = _simulate_result(func.name, "c", gen_type)
-
-                analyzer.add_function_result(c_file.stem, "c", func_cov)
-                print(f"    [{gen_type}] {func.name}: {func_cov.line_coverage:.1f}% coverage")
-
-    # Process Rust benchmarks
-    for rust_file in rust_files:
-        print(f"\nProcessing: {rust_file.name}")
-        source_code = rust_file.read_text()
-
-        parser = RustParser()
-        functions = parser.parse_source(source_code)
-        testable = parser.get_testable_functions()
-
-        print(f"  Found {len(testable)} testable functions")
-
-        for func in testable:
-            for gen_type, generator in [("llm", llm_generator if use_llm else None),
-                                        ("template", template_generator)]:
-                if generator is None:
-                    func_cov = _simulate_llm_result(func.name, "rust")
-                else:
-                    try:
-                        if gen_type == "llm":
-                            test = generator.generate_rust_tests(func)
-                        else:
-                            test = generator.generate_rust_tests(func)
-
-                        if rust_runner:
-                            result, cov = rust_runner.run_with_coverage(source_code, test.test_code)
-                            func_cov = FunctionCoverage(
-                                function_name=func.name,
-                                language="rust",
-                                line_coverage=cov.line_coverage,
-                                branch_coverage=cov.branch_coverage,
-                                lines_covered=cov.lines_covered,
-                                lines_total=cov.lines_total,
-                                test_passed=result.passed,
-                                execution_time=result.execution_time,
-                                generator_type="llm" if gen_type == "llm" else "template"
-                            )
-                        else:
-                            func_cov = _simulate_result(func.name, "rust", gen_type)
-                    except Exception as e:
-                        print(f"    Error with {gen_type} for {func.name}: {e}")
-                        func_cov = _simulate_result(func.name, "rust", gen_type)
-
-                analyzer.add_function_result(rust_file.stem, "rust", func_cov)
-                print(f"    [{gen_type}] {func.name}: {func_cov.line_coverage:.1f}% coverage")
-
-    # Save results
     print("\n" + "-" * 40)
     print("Saving results...")
-    results_file = analyzer.save_results("results.json")
+    analyzer, results_file = _aggregate_shards(results_dir, shards_dir)
     print(f"Results saved to: {results_file}")
 
-    # Generate report
     print("\n" + analyzer.generate_report())
 
-    # Generate visualizations
     print("\nGenerating visualizations...")
-    with open(results_file) as f:
-        data = json.load(f)
-
+    with open(results_file, encoding="utf-8") as handle:
+        data = json.load(handle)
     create_all_charts(data, graphs_dir)
     print(f"Graphs saved to: {graphs_dir}")
 
@@ -840,6 +969,10 @@ if __name__ == "__main__":
                        help="Path to trained ML model")
     parser.add_argument("--correlated", action="store_true",
                        help="Regenerate results.json with feature-correlated simulations")
+    parser.add_argument("--workers", type=int, default=None,
+                       help="Parallel worker count for full evaluation")
+    parser.add_argument("--no-resume", action="store_true",
+                       help="Ignore existing shard checkpoints and start a fresh full evaluation")
 
     args = parser.parse_args()
 
@@ -852,4 +985,9 @@ if __name__ == "__main__":
     elif args.ml_guided:
         run_ml_guided_evaluation(model_path=Path(args.model_path))
     else:
-        run_full_evaluation(use_llm=not args.no_llm, llm_provider=args.provider)
+        run_full_evaluation(
+            use_llm=not args.no_llm,
+            llm_provider=args.provider,
+            parallel_workers=args.workers,
+            resume=not args.no_resume,
+        )
