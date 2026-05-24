@@ -14,6 +14,16 @@ import numpy as np
 plt.style.use('seaborn-v0_8-whitegrid')
 sns.set_palette("husl")
 
+# Match the thesis font family (memoir class default: Computer Modern Roman).
+# Falls back gracefully on systems without CM installed.
+plt.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["CMU Serif", "Computer Modern Roman", "Times New Roman", "Times", "DejaVu Serif"],
+    "mathtext.fontset": "cm",
+    "axes.titleweight": "bold",
+    "axes.labelweight": "bold",
+})
+
 
 LEGACY_COMPARISON_GRAPH_NAMES = [
     "summary_dashboard.png",
