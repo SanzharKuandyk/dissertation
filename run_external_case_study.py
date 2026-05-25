@@ -222,7 +222,8 @@ def create_case_study_chart(report: dict[str, Any], output_path: Path) -> None:
         )
 
     ax.set_yticks(y)
-    ax.set_yticklabels(labels, fontsize=9)
+    ax.set_yticklabels(labels, fontsize=10)
+    ax.tick_params(axis="x", labelsize=10)
     ax.set_xlabel("Screened function count", fontsize=12, fontweight="bold")
     ax.set_title(
         "External Unseen-Code Case Study: Screening Buckets by Source File",
@@ -231,13 +232,7 @@ def create_case_study_chart(report: dict[str, Any], output_path: Path) -> None:
     )
     ax.grid(axis="x", alpha=0.2)
     ax.legend(loc="lower right", fontsize=10)
-
-    note = (
-        "External files were sourced from pinned upstream commits and were not used "
-        "to train the Random Forest model."
-    )
-    fig.text(0.5, 0.02, note, ha="center", fontsize=10, color="#475569")
-    plt.tight_layout(rect=(0, 0.05, 1, 1))
+    plt.tight_layout()
     output_path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(output_path, dpi=300, bbox_inches="tight")
     plt.close()

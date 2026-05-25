@@ -1,31 +1,31 @@
 {
-  "generated_at": "2026-05-15T20:56:12",
-  "model_path": "C:\\Projects\\dissertation-project\\dissertation\\models\\strategy_selector.joblib",
+  "generated_at": "2026-05-25T12:14:25",
+  "model_path": "C:\\Projects\\disser\\dissertation\\models\\strategy_selector.joblib",
   "summary": {
     "total_sources": 4,
     "total_functions": 16,
-    "good_candidate": 9,
-    "borderline": 3,
-    "risky": 4
+    "good_candidate": 11,
+    "borderline": 5,
+    "risky": 0
   },
   "language_breakdown": {
     "c": {
       "total_functions": 6,
-      "good_candidate": 3,
-      "borderline": 1,
-      "risky": 2
+      "good_candidate": 4,
+      "borderline": 2,
+      "risky": 0
     },
     "cpp": {
       "total_functions": 3,
-      "good_candidate": 2,
+      "good_candidate": 3,
       "borderline": 0,
-      "risky": 1
+      "risky": 0
     },
     "rust": {
       "total_functions": 7,
       "good_candidate": 4,
-      "borderline": 2,
-      "risky": 1
+      "borderline": 3,
+      "risky": 0
     }
   },
   "cases": [
@@ -38,20 +38,20 @@
       "relative_path": "lib/strcase.c",
       "source_url": "https://raw.githubusercontent.com/curl/curl/aafbe089a88c42bf81ff8cf868f20263661ad3e4/lib/strcase.c",
       "display_name": "C / curl/curl / lib/strcase.c",
-      "local_path": "C:\\Projects\\dissertation-project\\dissertation\\external_case_study\\sources\\curl_strcase.c",
+      "local_path": "C:\\Projects\\disser\\dissertation\\external_case_study\\sources\\curl_strcase.c",
       "note": "Utility-style C string comparison helpers from a mature systems project.",
       "summary": {
         "total_functions": 6,
-        "good_candidate": 3,
-        "borderline": 1,
-        "risky": 2
+        "good_candidate": 4,
+        "borderline": 2,
+        "risky": 0
       },
       "functions": [
         {
           "name": "Curl_raw_toupper",
           "line_start": 74,
           "line_end": 77,
-          "llm_suitability_score": 0.7193,
+          "llm_suitability_score": 0.91,
           "bucket": "good_candidate",
           "predicted_label": "high_llm_success",
           "raw_signature": "char Curl_raw_toupper(char in)"
@@ -60,7 +60,7 @@
           "name": "Curl_raw_tolower",
           "line_start": 81,
           "line_end": 84,
-          "llm_suitability_score": 0.7193,
+          "llm_suitability_score": 0.91,
           "bucket": "good_candidate",
           "predicted_label": "high_llm_success",
           "raw_signature": "char Curl_raw_tolower(char in)"
@@ -69,7 +69,7 @@
           "name": "Curl_safecmp",
           "line_start": 119,
           "line_end": 124,
-          "llm_suitability_score": 0.7,
+          "llm_suitability_score": 0.87,
           "bucket": "good_candidate",
           "predicted_label": "high_llm_success",
           "raw_signature": "bool Curl_safecmp(const char *a, const char *b)"
@@ -78,27 +78,27 @@
           "name": "Curl_timestrcmp",
           "line_start": 130,
           "line_end": 146,
-          "llm_suitability_score": 0.43,
-          "bucket": "borderline",
-          "predicted_label": "low_llm_success",
+          "llm_suitability_score": 0.84,
+          "bucket": "good_candidate",
+          "predicted_label": "high_llm_success",
           "raw_signature": "int Curl_timestrcmp(const char *a, const char *b)"
         },
         {
           "name": "Curl_strntoupper",
           "line_start": 91,
           "line_end": 99,
-          "llm_suitability_score": 0.295,
-          "bucket": "risky",
-          "predicted_label": "low_llm_success",
+          "llm_suitability_score": 0.68,
+          "bucket": "borderline",
+          "predicted_label": "high_llm_success",
           "raw_signature": "void Curl_strntoupper(char *dest, const char *src, size_t n)"
         },
         {
           "name": "Curl_strntolower",
           "line_start": 106,
           "line_end": 114,
-          "llm_suitability_score": 0.295,
-          "bucket": "risky",
-          "predicted_label": "low_llm_success",
+          "llm_suitability_score": 0.68,
+          "bucket": "borderline",
+          "predicted_label": "high_llm_success",
           "raw_signature": "void Curl_strntolower(char *dest, const char *src, size_t n)"
         }
       ]
@@ -112,7 +112,7 @@
       "relative_path": "src/os.cc",
       "source_url": "https://raw.githubusercontent.com/fmtlib/fmt/2f18a88e68af42bdda0e5210f80fac07ae756bd6/src/os.cc",
       "display_name": "C++ / fmtlib/fmt / src/os.cc",
-      "local_path": "C:\\Projects\\dissertation-project\\dissertation\\external_case_study\\sources\\fmt_os.cpp",
+      "local_path": "C:\\Projects\\disser\\dissertation\\external_case_study\\sources\\fmt_os.cpp",
       "note": "Conservative C++ parser scope yields two plain free functions in this file.",
       "summary": {
         "total_functions": 2,
@@ -122,6 +122,15 @@
       },
       "functions": [
         {
+          "name": "vwindows_error",
+          "line_start": 141,
+          "line_end": 145,
+          "llm_suitability_score": 0.9,
+          "bucket": "good_candidate",
+          "predicted_label": "high_llm_success",
+          "raw_signature": "std::system_error vwindows_error(int err_code, string_view format_str,\n                                 format_args args)"
+        },
+        {
           "name": "report_windows_error",
           "line_start": 164,
           "line_end": 166,
@@ -129,15 +138,6 @@
           "bucket": "good_candidate",
           "predicted_label": "high_llm_success",
           "raw_signature": "void report_windows_error(int error_code, const char* message)"
-        },
-        {
-          "name": "vwindows_error",
-          "line_start": 141,
-          "line_end": 145,
-          "llm_suitability_score": 0.82,
-          "bucket": "good_candidate",
-          "predicted_label": "high_llm_success",
-          "raw_signature": "std::system_error vwindows_error(int err_code, string_view format_str,\n                                 format_args args)"
         }
       ]
     },
@@ -150,22 +150,22 @@
       "relative_path": "util/strutil.cc",
       "source_url": "https://raw.githubusercontent.com/google/re2/972a15cedd008d846f1a39b2e88ce48d7f166cbd/util/strutil.cc",
       "display_name": "C++ / google/re2 / util/strutil.cc",
-      "local_path": "C:\\Projects\\dissertation-project\\dissertation\\external_case_study\\sources\\re2_strutil.cpp",
+      "local_path": "C:\\Projects\\disser\\dissertation\\external_case_study\\sources\\re2_strutil.cpp",
       "note": "Single free-function utility file that produces a low-suitability example.",
       "summary": {
         "total_functions": 1,
-        "good_candidate": 0,
+        "good_candidate": 1,
         "borderline": 0,
-        "risky": 1
+        "risky": 0
       },
       "functions": [
         {
           "name": "PrefixSuccessor",
           "line_start": 9,
           "line_end": 24,
-          "llm_suitability_score": 0.13,
-          "bucket": "risky",
-          "predicted_label": "low_llm_success",
+          "llm_suitability_score": 0.88,
+          "bucket": "good_candidate",
+          "predicted_label": "high_llm_success",
           "raw_signature": "void PrefixSuccessor(std::string* prefix)"
         }
       ]
@@ -179,24 +179,15 @@
       "relative_path": "percent_encoding/src/lib.rs",
       "source_url": "https://raw.githubusercontent.com/servo/rust-url/55ff72dd676ae6657d0b8d7dd005233210da76d2/percent_encoding/src/lib.rs",
       "display_name": "Rust / servo/rust-url / percent_encoding/src/lib.rs",
-      "local_path": "C:\\Projects\\dissertation-project\\dissertation\\external_case_study\\sources\\percent_encoding_lib.rs",
+      "local_path": "C:\\Projects\\disser\\dissertation\\external_case_study\\sources\\percent_encoding_lib.rs",
       "note": "Public utility functions from a widely used Rust URL-processing crate.",
       "summary": {
         "total_functions": 7,
         "good_candidate": 4,
-        "borderline": 2,
-        "risky": 1
+        "borderline": 3,
+        "risky": 0
       },
       "functions": [
-        {
-          "name": "decode_utf8_lossy",
-          "line_start": 329,
-          "line_end": 332,
-          "llm_suitability_score": 0.98,
-          "bucket": "good_candidate",
-          "predicted_label": "high_llm_success",
-          "raw_signature": "pub fn decode_utf8_lossy(self) -> Cow<'a, str>"
-        },
         {
           "name": "percent_decode_str",
           "line_start": 216,
@@ -216,10 +207,19 @@
           "raw_signature": "pub fn utf8_percent_encode<'a>(input: &'a str, ascii_set: &'static AsciiSet) -> PercentEncode<'a>"
         },
         {
+          "name": "decode_utf8_lossy",
+          "line_start": 329,
+          "line_end": 332,
+          "llm_suitability_score": 0.91,
+          "bucket": "good_candidate",
+          "predicted_label": "high_llm_success",
+          "raw_signature": "pub fn decode_utf8_lossy(self) -> Cow<'a, str>"
+        },
+        {
           "name": "percent_decode",
           "line_start": 239,
           "line_end": 244,
-          "llm_suitability_score": 0.7,
+          "llm_suitability_score": 0.79,
           "bucket": "good_candidate",
           "predicted_label": "high_llm_success",
           "raw_signature": "pub fn percent_decode(input: &[u8]) -> PercentDecode<'_>"
@@ -228,45 +228,33 @@
           "name": "percent_encode",
           "line_start": 116,
           "line_end": 122,
-          "llm_suitability_score": 0.59,
+          "llm_suitability_score": 0.67,
           "bucket": "borderline",
           "predicted_label": "high_llm_success",
           "raw_signature": "pub fn percent_encode<'a>(input: &'a [u8], ascii_set: &'static AsciiSet) -> PercentEncode<'a>"
         },
         {
-          "name": "percent_encode_byte",
-          "line_start": 72,
-          "line_end": 97,
-          "llm_suitability_score": 0.47,
-          "bucket": "borderline",
-          "predicted_label": "low_llm_success",
-          "raw_signature": "pub fn percent_encode_byte(byte: u8) -> &'static str"
-        },
-        {
           "name": "decode_utf8",
           "line_start": 311,
           "line_end": 323,
-          "llm_suitability_score": 0.25,
-          "bucket": "risky",
-          "predicted_label": "low_llm_success",
+          "llm_suitability_score": 0.64,
+          "bucket": "borderline",
+          "predicted_label": "high_llm_success",
           "raw_signature": "pub fn decode_utf8(self) -> Result<Cow<'a, str>, str::Utf8Error>"
+        },
+        {
+          "name": "percent_encode_byte",
+          "line_start": 72,
+          "line_end": 97,
+          "llm_suitability_score": 0.53,
+          "bucket": "borderline",
+          "predicted_label": "high_llm_success",
+          "raw_signature": "pub fn percent_encode_byte(byte: u8) -> &'static str"
         }
       ]
     }
   ],
   "highest_scored_functions": [
-    {
-      "source_id": "percent_encoding",
-      "display_name": "Rust / servo/rust-url / percent_encoding/src/lib.rs",
-      "language": "rust",
-      "name": "decode_utf8_lossy",
-      "line_start": 329,
-      "line_end": 332,
-      "llm_suitability_score": 0.98,
-      "bucket": "good_candidate",
-      "predicted_label": "high_llm_success",
-      "raw_signature": "pub fn decode_utf8_lossy(self) -> Cow<'a, str>"
-    },
     {
       "source_id": "percent_encoding",
       "display_name": "Rust / servo/rust-url / percent_encoding/src/lib.rs",
@@ -292,42 +280,54 @@
       "raw_signature": "pub fn utf8_percent_encode<'a>(input: &'a str, ascii_set: &'static AsciiSet) -> PercentEncode<'a>"
     },
     {
-      "source_id": "fmt_os",
-      "display_name": "C++ / fmtlib/fmt / src/os.cc",
-      "language": "cpp",
-      "name": "report_windows_error",
-      "line_start": 164,
-      "line_end": 166,
-      "llm_suitability_score": 0.9,
+      "source_id": "curl_strcase",
+      "display_name": "C / curl/curl / lib/strcase.c",
+      "language": "c",
+      "name": "Curl_raw_toupper",
+      "line_start": 74,
+      "line_end": 77,
+      "llm_suitability_score": 0.91,
       "bucket": "good_candidate",
       "predicted_label": "high_llm_success",
-      "raw_signature": "void report_windows_error(int error_code, const char* message)"
+      "raw_signature": "char Curl_raw_toupper(char in)"
     },
     {
-      "source_id": "fmt_os",
-      "display_name": "C++ / fmtlib/fmt / src/os.cc",
-      "language": "cpp",
-      "name": "vwindows_error",
-      "line_start": 141,
-      "line_end": 145,
-      "llm_suitability_score": 0.82,
+      "source_id": "curl_strcase",
+      "display_name": "C / curl/curl / lib/strcase.c",
+      "language": "c",
+      "name": "Curl_raw_tolower",
+      "line_start": 81,
+      "line_end": 84,
+      "llm_suitability_score": 0.91,
       "bucket": "good_candidate",
       "predicted_label": "high_llm_success",
-      "raw_signature": "std::system_error vwindows_error(int err_code, string_view format_str,\n                                 format_args args)"
+      "raw_signature": "char Curl_raw_tolower(char in)"
+    },
+    {
+      "source_id": "percent_encoding",
+      "display_name": "Rust / servo/rust-url / percent_encoding/src/lib.rs",
+      "language": "rust",
+      "name": "decode_utf8_lossy",
+      "line_start": 329,
+      "line_end": 332,
+      "llm_suitability_score": 0.91,
+      "bucket": "good_candidate",
+      "predicted_label": "high_llm_success",
+      "raw_signature": "pub fn decode_utf8_lossy(self) -> Cow<'a, str>"
     }
   ],
   "lowest_scored_functions": [
     {
-      "source_id": "re2_strutil",
-      "display_name": "C++ / google/re2 / util/strutil.cc",
-      "language": "cpp",
-      "name": "PrefixSuccessor",
-      "line_start": 9,
-      "line_end": 24,
-      "llm_suitability_score": 0.13,
-      "bucket": "risky",
-      "predicted_label": "low_llm_success",
-      "raw_signature": "void PrefixSuccessor(std::string* prefix)"
+      "source_id": "percent_encoding",
+      "display_name": "Rust / servo/rust-url / percent_encoding/src/lib.rs",
+      "language": "rust",
+      "name": "percent_encode_byte",
+      "line_start": 72,
+      "line_end": 97,
+      "llm_suitability_score": 0.53,
+      "bucket": "borderline",
+      "predicted_label": "high_llm_success",
+      "raw_signature": "pub fn percent_encode_byte(byte: u8) -> &'static str"
     },
     {
       "source_id": "percent_encoding",
@@ -336,10 +336,22 @@
       "name": "decode_utf8",
       "line_start": 311,
       "line_end": 323,
-      "llm_suitability_score": 0.25,
-      "bucket": "risky",
-      "predicted_label": "low_llm_success",
+      "llm_suitability_score": 0.64,
+      "bucket": "borderline",
+      "predicted_label": "high_llm_success",
       "raw_signature": "pub fn decode_utf8(self) -> Result<Cow<'a, str>, str::Utf8Error>"
+    },
+    {
+      "source_id": "percent_encoding",
+      "display_name": "Rust / servo/rust-url / percent_encoding/src/lib.rs",
+      "language": "rust",
+      "name": "percent_encode",
+      "line_start": 116,
+      "line_end": 122,
+      "llm_suitability_score": 0.67,
+      "bucket": "borderline",
+      "predicted_label": "high_llm_success",
+      "raw_signature": "pub fn percent_encode<'a>(input: &'a [u8], ascii_set: &'static AsciiSet) -> PercentEncode<'a>"
     },
     {
       "source_id": "curl_strcase",
@@ -348,9 +360,9 @@
       "name": "Curl_strntoupper",
       "line_start": 91,
       "line_end": 99,
-      "llm_suitability_score": 0.295,
-      "bucket": "risky",
-      "predicted_label": "low_llm_success",
+      "llm_suitability_score": 0.68,
+      "bucket": "borderline",
+      "predicted_label": "high_llm_success",
       "raw_signature": "void Curl_strntoupper(char *dest, const char *src, size_t n)"
     },
     {
@@ -360,22 +372,10 @@
       "name": "Curl_strntolower",
       "line_start": 106,
       "line_end": 114,
-      "llm_suitability_score": 0.295,
-      "bucket": "risky",
-      "predicted_label": "low_llm_success",
-      "raw_signature": "void Curl_strntolower(char *dest, const char *src, size_t n)"
-    },
-    {
-      "source_id": "curl_strcase",
-      "display_name": "C / curl/curl / lib/strcase.c",
-      "language": "c",
-      "name": "Curl_timestrcmp",
-      "line_start": 130,
-      "line_end": 146,
-      "llm_suitability_score": 0.43,
+      "llm_suitability_score": 0.68,
       "bucket": "borderline",
-      "predicted_label": "low_llm_success",
-      "raw_signature": "int Curl_timestrcmp(const char *a, const char *b)"
+      "predicted_label": "high_llm_success",
+      "raw_signature": "void Curl_strntolower(char *dest, const char *src, size_t n)"
     }
   ]
 }
