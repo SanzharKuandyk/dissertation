@@ -520,10 +520,10 @@ def create_architecture_diagram(output_path: Path):
     ax.set_ylim(0, 9.4)
     ax.axis("off")
 
-    title_color = "#1f2937"
-    text_color = "#334155"
-    border_color = "#cbd5e1"
-    arrow_color = "#475569"
+    title_color = "#111827"
+    text_color = "#374151"
+    border_color = "#4b5563"
+    arrow_color = "#374151"
 
     def add_box(x, y, w, h, title, subtitle, facecolor, edgecolor):
         box = mpatches.FancyBboxPatch(
@@ -533,14 +533,14 @@ def create_architecture_diagram(output_path: Path):
             boxstyle="round,pad=0.04,rounding_size=0.12",
             facecolor=facecolor,
             edgecolor=edgecolor,
-            linewidth=1.6,
+            linewidth=1.4,
         )
         ax.add_patch(box)
         ax.text(
             x + w / 2,
             y + h * 0.68,
             title,
-            fontsize=13,
+            fontsize=14.5,
             fontweight="bold",
             color=title_color,
             ha="center",
@@ -550,7 +550,7 @@ def create_architecture_diagram(output_path: Path):
             x + w / 2,
             y + h * 0.35,
             subtitle,
-            fontsize=10.5,
+            fontsize=11.5,
             color=text_color,
             ha="center",
             va="center",
@@ -570,35 +570,14 @@ def create_architecture_diagram(output_path: Path):
             ),
         )
 
-    fig.suptitle("MLTest Screening Workflow", fontsize=17, fontweight="bold", y=0.96)
-    ax.text(
-        0.8,
-        8.45,
-        "Primary path: static analysis and suitability screening before generation",
-        fontsize=10.5,
-        color="#475569",
-        ha="left",
-    )
-
-    main_panel = mpatches.FancyBboxPatch(
-        (0.6, 0.2),
-        12.8,
-        7.55,
-        boxstyle="round,pad=0.05,rounding_size=0.15",
-        facecolor="#f8fafc",
-        edgecolor=border_color,
-        linewidth=1.4,
-    )
-    ax.add_patch(main_panel)
-
     top_y = 5.8
     box_w = 2.35
     box_h = 1.2
 
-    add_box(0.95, top_y, box_w, box_h, "Source Functions", "C / C++ / Rust", "#e0f2fe", "#7dd3fc")
-    add_box(3.65, top_y, box_w, box_h, "Parsers", "Function extraction", "#dbeafe", "#93c5fd")
-    add_box(6.35, top_y, box_w, box_h, "Static Features", "22 features per function", "#dcfce7", "#86efac")
-    add_box(9.05, top_y, box_w, box_h, "Random Forest", "Suitability score", "#ede9fe", "#c4b5fd")
+    add_box(0.95, top_y, box_w, box_h, "Source Functions", "C / C++ / Rust", "white", border_color)
+    add_box(3.65, top_y, box_w, box_h, "Parsers", "Function extraction", "white", border_color)
+    add_box(6.35, top_y, box_w, box_h, "Static Features", "22 features per function", "white", border_color)
+    add_box(9.05, top_y, box_w, box_h, "Random Forest", "Suitability score", "white", border_color)
 
     connect(3.3, top_y + box_h / 2, 3.65, top_y + box_h / 2)
     connect(6.0, top_y + box_h / 2, 6.35, top_y + box_h / 2)
@@ -609,13 +588,13 @@ def create_architecture_diagram(output_path: Path):
         3.11,
         1.1,
         boxstyle="round,pad=0.04,rounding_size=0.12",
-        facecolor="#fff7ed",
-        edgecolor="#fdba74",
-        linewidth=1.6,
+        facecolor="white",
+        edgecolor=border_color,
+        linewidth=1.4,
     )
     ax.add_patch(ranking_box)
-    ax.text(10.225, 4.63, "Bucketed Ranking", fontsize=13, fontweight="bold", color=title_color, ha="center")
-    ax.text(10.225, 4.28, "good / borderline / risky", fontsize=10.5, color=text_color, ha="center")
+    ax.text(10.225, 4.63, "Bucketed Ranking", fontsize=14.5, fontweight="bold", color=title_color, ha="center")
+    ax.text(10.225, 4.28, "good / borderline / risky", fontsize=11.5, color=text_color, ha="center")
     connect(10.225, top_y, 10.225, 5.1)
 
     chip_y = 3.18
@@ -623,9 +602,9 @@ def create_architecture_diagram(output_path: Path):
     chip_gap = 0.22
     chip_start_x = 10.225 - ((3 * chip_width) + (2 * chip_gap)) / 2
     chip_specs = [
-        (chip_start_x + 0 * (chip_width + chip_gap), "Good Candidate", "#bbf7d0", "#22c55e"),
-        (chip_start_x + 1 * (chip_width + chip_gap), "Borderline", "#fde68a", "#f59e0b"),
-        (chip_start_x + 2 * (chip_width + chip_gap), "Risky", "#fecaca", "#ef4444"),
+        (chip_start_x + 0 * (chip_width + chip_gap), "Good Candidate", "white", border_color),
+        (chip_start_x + 1 * (chip_width + chip_gap), "Borderline", "white", border_color),
+        (chip_start_x + 2 * (chip_width + chip_gap), "Risky", "white", border_color),
     ]
     for x, label, face, edge in chip_specs:
         chip = mpatches.FancyBboxPatch(
@@ -635,23 +614,23 @@ def create_architecture_diagram(output_path: Path):
             boxstyle="round,pad=0.03,rounding_size=0.15",
             facecolor=face,
             edgecolor=edge,
-            linewidth=1.2,
+            linewidth=1.1,
         )
         ax.add_patch(chip)
-        ax.text(x + chip_width / 2, chip_y + 0.21, label, fontsize=8.5, color=title_color, ha="center", va="center")
+        ax.text(x + chip_width / 2, chip_y + 0.21, label, fontsize=9.3, color=title_color, ha="center", va="center")
 
     reports_box = mpatches.FancyBboxPatch(
         (1.15, 4.0),
         5.55,
         1.1,
         boxstyle="round,pad=0.04,rounding_size=0.12",
-        facecolor="#f1f5f9",
-        edgecolor="#94a3b8",
-        linewidth=1.6,
+        facecolor="white",
+        edgecolor=border_color,
+        linewidth=1.4,
     )
     ax.add_patch(reports_box)
-    ax.text(3.925, 4.75, "Reports and Visualizations", fontsize=13, fontweight="bold", color=title_color, ha="center")
-    ax.text(3.925, 4.38, "scores, rankings, language breakdowns, feature plots", fontsize=10.3, color=text_color, ha="center")
+    ax.text(3.925, 4.75, "Reports and Visualizations", fontsize=14.5, fontweight="bold", color=title_color, ha="center")
+    ax.text(3.925, 4.38, "scores, rankings, language breakdowns, feature plots", fontsize=11.1, color=text_color, ha="center")
     connect(8.65, 4.55, 6.7, 4.55)
 
     optional_box = mpatches.FancyBboxPatch(
@@ -660,39 +639,27 @@ def create_architecture_diagram(output_path: Path):
         1.15,
         boxstyle="round,pad=0.04,rounding_size=0.12",
         facecolor="white",
-        edgecolor="#f87171",
-        linewidth=1.5,
-        linestyle="--",
+        edgecolor=border_color,
+        linewidth=1.4,
     )
     ax.add_patch(optional_box)
-    ax.text(10.225, 2.22, "Optional Downstream Generation", fontsize=11.8, fontweight="bold", color=title_color, ha="center")
+    ax.text(10.225, 2.22, "Optional Downstream Generation", fontsize=12.8, fontweight="bold", color=title_color, ha="center")
     ax.text(
         10.225,
         1.88,
         "selected functions only:\nLLM / template / run",
-        fontsize=9.3,
+        fontsize=10.2,
         color=text_color,
         ha="center",
         va="center",
         linespacing=1.15,
     )
-    ax.plot([11.78, 12.35], [4.55, 4.55], color=arrow_color, lw=1.8, linestyle="--")
+    ax.plot([11.78, 12.35], [4.55, 4.55], color=arrow_color, lw=1.8)
     ax.annotate(
         "",
         xy=(12.35, 2.65),
         xytext=(12.35, 4.55),
-        arrowprops=dict(arrowstyle="->", color=arrow_color, lw=1.8, linestyle="--", mutation_scale=16),
-    )
-
-    ax.text(
-        7.0,
-        0.9,
-        "Generation is not the primary thesis claim;\nthe main output is screening support.",
-        fontsize=9.8,
-        color="#64748b",
-        ha="center",
-        va="center",
-        linespacing=1.3,
+        arrowprops=dict(arrowstyle="->", color=arrow_color, lw=1.8, mutation_scale=16),
     )
 
     plt.tight_layout()
