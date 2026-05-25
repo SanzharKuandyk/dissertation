@@ -10,7 +10,7 @@
       "tests_failed": 3,
       "total_execution_time": 1.0632514953613281,
       "generator_type": "llm",
-      "timestamp": "2026-05-24T17:23:09.058012",
+      "timestamp": "2026-05-25T11:13:35.067838",
       "function_results": [
         {
           "function_name": "array_min",
@@ -200,7 +200,7 @@
       "tests_failed": 0,
       "total_execution_time": 1.1597535610198975,
       "generator_type": "template",
-      "timestamp": "2026-05-24T17:23:09.058168",
+      "timestamp": "2026-05-25T11:13:35.068019",
       "function_results": [
         {
           "function_name": "array_min",
@@ -390,7 +390,7 @@
       "tests_failed": 3,
       "total_execution_time": 2.278557538986206,
       "generator_type": "llm",
-      "timestamp": "2026-05-24T17:23:09.058279",
+      "timestamp": "2026-05-25T11:13:35.068145",
       "function_results": [
         {
           "function_name": "safe_add",
@@ -547,7 +547,7 @@
       "tests_failed": 0,
       "total_execution_time": 0.8890383243560791,
       "generator_type": "template",
-      "timestamp": "2026-05-24T17:23:09.058380",
+      "timestamp": "2026-05-25T11:13:35.068253",
       "function_results": [
         {
           "function_name": "safe_add",
@@ -704,7 +704,7 @@
       "tests_failed": 0,
       "total_execution_time": 1.0617706775665283,
       "generator_type": "llm",
-      "timestamp": "2026-05-24T17:23:09.058486",
+      "timestamp": "2026-05-25T11:13:35.068362",
       "function_results": [
         {
           "function_name": "safe_strlen",
@@ -916,7 +916,7 @@
       "tests_failed": 0,
       "total_execution_time": 1.0502405166625977,
       "generator_type": "template",
-      "timestamp": "2026-05-24T17:23:09.058589",
+      "timestamp": "2026-05-25T11:13:35.068470",
       "function_results": [
         {
           "function_name": "safe_strlen",
@@ -1128,7 +1128,7 @@
       "tests_failed": 1,
       "total_execution_time": 1.1678247451782227,
       "generator_type": "llm",
-      "timestamp": "2026-05-24T17:23:09.058697",
+      "timestamp": "2026-05-25T11:13:35.068570",
       "function_results": [
         {
           "function_name": "array_min",
@@ -1318,7 +1318,7 @@
       "tests_failed": 0,
       "total_execution_time": 2.5195670127868652,
       "generator_type": "template",
-      "timestamp": "2026-05-24T17:23:09.058797",
+      "timestamp": "2026-05-25T11:13:35.068671",
       "function_results": [
         {
           "function_name": "array_min",
@@ -1508,7 +1508,7 @@
       "tests_failed": 2,
       "total_execution_time": 1.1758153438568115,
       "generator_type": "llm",
-      "timestamp": "2026-05-24T17:23:09.058895",
+      "timestamp": "2026-05-25T11:13:35.068774",
       "function_results": [
         {
           "function_name": "safe_add",
@@ -1687,7 +1687,7 @@
       "tests_failed": 0,
       "total_execution_time": 0.8708269596099854,
       "generator_type": "template",
-      "timestamp": "2026-05-24T17:23:09.058992",
+      "timestamp": "2026-05-25T11:13:35.068873",
       "function_results": [
         {
           "function_name": "safe_add",
@@ -1866,7 +1866,7 @@
       "tests_failed": 0,
       "total_execution_time": 1.1319994926452637,
       "generator_type": "llm",
-      "timestamp": "2026-05-24T17:23:09.059101",
+      "timestamp": "2026-05-25T11:13:35.068979",
       "function_results": [
         {
           "function_name": "string_length",
@@ -2067,7 +2067,7 @@
       "tests_failed": 0,
       "total_execution_time": 1.0342841148376465,
       "generator_type": "template",
-      "timestamp": "2026-05-24T17:23:09.059203",
+      "timestamp": "2026-05-25T11:13:35.069079",
       "function_results": [
         {
           "function_name": "string_length",
@@ -2268,7 +2268,7 @@
       "tests_failed": 0,
       "total_execution_time": 15.220201253890991,
       "generator_type": "llm",
-      "timestamp": "2026-05-24T17:23:09.065111",
+      "timestamp": "2026-05-25T11:13:35.069406",
       "function_results": [
         {
           "function_name": "slice_min",
@@ -2535,7 +2535,7 @@
       "tests_failed": 0,
       "total_execution_time": 13.809983491897583,
       "generator_type": "template",
-      "timestamp": "2026-05-24T17:23:09.065287",
+      "timestamp": "2026-05-25T11:13:35.069578",
       "function_results": [
         {
           "function_name": "slice_min",
@@ -2802,7 +2802,7 @@
       "tests_failed": 0,
       "total_execution_time": 3.632861852645874,
       "generator_type": "llm",
-      "timestamp": "2026-05-24T17:23:09.070993",
+      "timestamp": "2026-05-25T11:13:35.069692",
       "function_results": [
         {
           "function_name": "safe_add",
@@ -2981,7 +2981,7 @@
       "tests_failed": 0,
       "total_execution_time": 3.2809207439422607,
       "generator_type": "template",
-      "timestamp": "2026-05-24T17:23:09.071140",
+      "timestamp": "2026-05-25T11:13:35.069792",
       "function_results": [
         {
           "function_name": "safe_add",
@@ -3160,7 +3160,7 @@
       "tests_failed": 0,
       "total_execution_time": 18.659406661987305,
       "generator_type": "llm",
-      "timestamp": "2026-05-24T17:23:09.076723",
+      "timestamp": "2026-05-25T11:13:35.070008",
       "function_results": [
         {
           "function_name": "starts_with",
@@ -3449,7 +3449,7 @@
       "tests_failed": 0,
       "total_execution_time": 16.421980619430542,
       "generator_type": "template",
-      "timestamp": "2026-05-24T17:23:09.076925",
+      "timestamp": "2026-05-25T11:13:35.070174",
       "function_results": [
         {
           "function_name": "starts_with",
@@ -3733,22 +3733,22 @@
     "total_benchmarks": 18,
     "total_functions_tested": 316,
     "llm": {
-      "avg_line_coverage": 83.57920441290356,
-      "avg_branch_coverage": 67.82629458571488,
+      "avg_line_coverage": 85.56108097247338,
+      "avg_branch_coverage": 68.4488647779787,
       "total_tests_passed": 149,
       "total_tests_failed": 9,
       "pass_rate": 94.30379746835443
     },
     "template": {
-      "avg_line_coverage": 54.26834178466641,
-      "avg_branch_coverage": 46.445872173865446,
+      "avg_line_coverage": 60.257894872563526,
+      "avg_branch_coverage": 48.20631589805082,
       "total_tests_passed": 158,
       "total_tests_failed": 0,
       "pass_rate": 100.0
     },
     "improvement": {
-      "line_coverage_improvement": 29.310862628237153,
-      "branch_coverage_improvement": 21.38042241184943,
+      "line_coverage_improvement": 25.30318609990985,
+      "branch_coverage_improvement": 20.24254887992788,
       "pass_rate_improvement": -5.696202531645568
     }
   }

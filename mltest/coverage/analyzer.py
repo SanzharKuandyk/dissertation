@@ -113,9 +113,11 @@ class CoverageAnalyzer:
         }
 
         if llm_benchmarks:
+            llm_funcs = [f for b in llm_benchmarks for f in b.function_results]
+            n_llm = len(llm_funcs)
             summary['llm'] = {
-                'avg_line_coverage': sum(b.total_line_coverage for b in llm_benchmarks) / len(llm_benchmarks),
-                'avg_branch_coverage': sum(b.total_branch_coverage for b in llm_benchmarks) / len(llm_benchmarks),
+                'avg_line_coverage': (sum(f.line_coverage for f in llm_funcs) / n_llm) if n_llm else 0.0,
+                'avg_branch_coverage': (sum(f.branch_coverage for f in llm_funcs) / n_llm) if n_llm else 0.0,
                 'total_tests_passed': sum(b.tests_passed for b in llm_benchmarks),
                 'total_tests_failed': sum(b.tests_failed for b in llm_benchmarks),
                 'pass_rate': sum(b.tests_passed for b in llm_benchmarks) /
@@ -123,9 +125,11 @@ class CoverageAnalyzer:
             }
 
         if template_benchmarks:
+            template_funcs = [f for b in template_benchmarks for f in b.function_results]
+            n_tmpl = len(template_funcs)
             summary['template'] = {
-                'avg_line_coverage': sum(b.total_line_coverage for b in template_benchmarks) / len(template_benchmarks),
-                'avg_branch_coverage': sum(b.total_branch_coverage for b in template_benchmarks) / len(template_benchmarks),
+                'avg_line_coverage': (sum(f.line_coverage for f in template_funcs) / n_tmpl) if n_tmpl else 0.0,
+                'avg_branch_coverage': (sum(f.branch_coverage for f in template_funcs) / n_tmpl) if n_tmpl else 0.0,
                 'total_tests_passed': sum(b.tests_passed for b in template_benchmarks),
                 'total_tests_failed': sum(b.tests_failed for b in template_benchmarks),
                 'pass_rate': sum(b.tests_passed for b in template_benchmarks) /
